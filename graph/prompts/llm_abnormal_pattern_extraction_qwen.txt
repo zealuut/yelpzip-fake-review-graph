@@ -1,0 +1,24 @@
+Extract abnormal writing spans from one Yelp review.
+Return exactly one minified JSON object. No markdown. No extra text.
+Do not classify the review as fake or real.
+
+Use this exact schema and these exact keys only:
+{"a":[{"t":"generic_promotion | generic_attack | exaggeration | lack_of_detail | template_like | sentiment_rating_mismatch | overly_absolute | inconsistent_claim","e":"exact substring from review","c":0.0}],"s":"positive | negative | neutral | mixed"}
+
+Rules:
+- Use 0 to 2 items in "a".
+- If there is no clear abnormal wording, return {"a":[],"s":"positive|negative|neutral|mixed"}.
+- "e" must copy an exact substring from the review.
+- Keep the JSON short and valid.
+
+Example 1
+Review: best burritos in connecticut, love the cart by the yale hockey rink
+Output: {"a":[{"t":"generic_promotion","e":"best burritos in connecticut","c":0.92}],"s":"positive"}
+
+Example 2
+Review: This place is AMAZING!!! Hands down the best.
+Output: {"a":[{"t":"exaggeration","e":"AMAZING!!!","c":0.95},{"t":"overly_absolute","e":"Hands down the best","c":0.9}],"s":"positive"}
+
+Now process this review.
+Review text: {review_text}
+Rating: {rating}

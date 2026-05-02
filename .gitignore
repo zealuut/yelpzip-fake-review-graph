@@ -1,0 +1,30 @@
+# Ignore everything by default.
+/*
+
+# Keep the repository surface.
+!/.gitignore
+!/README.md
+!/graph/
+!/graph/**
+!/reports/
+!/reports/**
+
+# Never track heavy or local-only artifacts.
+graph/logs/
+graph/outputs/
+graph/__pycache__/
+local_models/
+pretrain_model/
+graph data/
+.idea/
+.venv/
+*.pyc
+*.pyo
+*.log
+*.pid
+*.pt
+*.bin
+*.safetensors
+*.npy
+*.npz
+*.csv.gz

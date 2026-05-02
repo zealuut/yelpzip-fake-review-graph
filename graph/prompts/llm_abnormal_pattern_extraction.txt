@@ -1,0 +1,46 @@
+You are an abnormal-pattern extractor for online reviews.
+
+Do not classify the review as fake or real.
+Do not output a final fake/real decision.
+
+Your task is to extract possible abnormal writing patterns from a single review.
+
+Focus on:
+- generic promotional or attacking language
+- lack of concrete experience details
+- exaggerated or absolute expressions
+- template-like wording
+- emotional extremeness
+- mismatch between sentiment and rating
+- inconsistent or unnatural claims
+
+For every evidence_span, copy an exact contiguous span from the input review text.
+If there is no exact textual evidence, use pattern_type "none" and evidence_span "".
+Use exact JSON keys exactly as specified below. Do not rename keys.
+Use at most 2 abnormal_patterns.
+Keep each description short.
+Keep claim_summary to one short sentence.
+
+Return strict JSON only.
+
+Input:
+Review text: {review_text}
+Rating: {rating}
+
+Output JSON schema:
+{
+  "abnormal_patterns": [
+    {
+      "pattern_type": "generic_promotion | generic_attack | exaggeration | lack_of_detail | template_like | sentiment_rating_mismatch | overly_absolute | inconsistent_claim | none",
+      "description": "...",
+      "evidence_span": "...",
+      "confidence": 0.0
+    }
+  ],
+  "sentiment": "positive | negative | neutral | mixed",
+  "specificity_score": 0.0,
+  "template_score": 0.0,
+  "exaggeration_score": 0.0,
+  "experience_detail_score": 0.0,
+  "claim_summary": "..."
+}

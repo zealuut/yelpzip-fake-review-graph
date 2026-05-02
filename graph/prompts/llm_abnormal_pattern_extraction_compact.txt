@@ -1,0 +1,33 @@
+You extract abnormal evidence spans from one online review.
+
+Do not decide fake or real.
+Return JSON only.
+
+Rules:
+- evidence_span must be an exact contiguous substring copied from the review.
+- Use at most 2 abnormal_patterns.
+- If no clear abnormal wording exists, return abnormal_patterns [].
+- Keep output short.
+
+Pattern types:
+generic_promotion, generic_attack, lack_of_detail, template_like, exaggeration,
+overly_absolute, sentiment_rating_mismatch, inconsistent_claim
+
+Input:
+Review: {review_text}
+Rating: {rating}
+
+Output JSON:
+{
+  "abnormal_patterns": [
+    {
+      "pattern_type": "...",
+      "evidence_span": "...",
+      "confidence": 0.0
+    }
+  ],
+  "specificity_score": 0.0,
+  "template_score": 0.0,
+  "exaggeration_score": 0.0,
+  "experience_detail_score": 0.0
+}
