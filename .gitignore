@@ -11,7 +11,18 @@
 
 # Never track heavy or local-only artifacts.
 graph/logs/
-graph/outputs/
+graph/outputs/**
+!graph/outputs/
+!graph/outputs/README.md
+!graph/outputs/**/
+!graph/outputs/**/run_config.json
+!graph/outputs/**/run_summary.json
+!graph/outputs/**/analysis_*.md
+!graph/outputs/**/comparison_vs_*.md
+!graph/outputs/**/prepared_data/dataset_metadata.json
+!graph/outputs/**/metrics/model_results*.csv
+!graph/outputs/**/metrics/edge_stats.csv
+!graph/outputs/**/edges/edge_build_config.json
 graph/__pycache__/
 local_models/
 pretrain_model/

@@ -1,0 +1,89 @@
+{
+  "source_meta": {
+    "source_mode": "auto",
+    "corrected_parts": [
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.00",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.01",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.02",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.03",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.04",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.05",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.06",
+      "/home/xyz/HuChao (2)/Bert-TextClassification/graph data/YelpZip_reviews_correct.csv.gz.part.07"
+    ],
+    "resolved_path": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_senior_backbone_clean_formal_20260502_101931/prepared_data/raw/YelpZip_reviews_correct.csv",
+    "resolved_variant": "corrected_reviews"
+  },
+  "review_count": 39667,
+  "user_count": 6664,
+  "product_count": 3369,
+  "fake_review_count": 14834,
+  "fake_user_count": 3332,
+  "split_sizes": {
+    "train": 4264,
+    "test": 1334,
+    "val": 1066
+  },
+  "preprocessing": {
+    "min_user_reviews": 3,
+    "min_product_reviews": 3,
+    "inactive_prune_iterations_before_conflict": 3,
+    "inactive_prune_iterations_after_conflict": 3,
+    "initial_review_count": 608458,
+    "initial_user_count": 260239,
+    "initial_product_count": 5044,
+    "conflicting_user_count": 1254,
+    "conflicting_user_ids_sample": [
+      "100277",
+      "10028",
+      "100289",
+      "10036",
+      "100405",
+      "100517",
+      "100682",
+      "100783",
+      "100788",
+      "100931",
+      "101010",
+      "101121",
+      "101154",
+      "10121",
+      "10126",
+      "101373",
+      "101436",
+      "101438",
+      "101582",
+      "101731"
+    ],
+    "final_review_count": 348243,
+    "final_user_count": 48558,
+    "final_product_count": 3933,
+    "removed_review_count": 260215,
+    "removed_user_count": 211681,
+    "removed_product_count": 1111,
+    "min_reviews_per_user_after_filter": 3,
+    "min_reviews_per_product_after_filter": 3,
+    "balanced_user_sampling": {
+      "requested_total_users": 6742,
+      "requested_per_class": 3371,
+      "available_fake_users": 3332,
+      "available_real_users": 45226,
+      "actual_fake_users": 3332,
+      "actual_real_users": 3332,
+      "actual_total_users": 6664,
+      "applied": true
+    }
+  },
+  "balance_user_labels": true,
+  "balanced_user_count": 6742,
+  "blocked_label_columns": [
+    "fake_ratio",
+    "fake_review_count",
+    "is_fake",
+    "is_fake_user",
+    "is_real",
+    "label",
+    "review_label",
+    "user_label"
+  ]
+}
