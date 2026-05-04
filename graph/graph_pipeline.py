@@ -25,6 +25,7 @@ DEFAULT_GRAPH_SUPPORT_BETAS = {
     "USU": 0.15,
     "CB": 0.20,
     "LogicAE_CB": 0.30,
+    "TNSGuided_LogicAE_CB": 0.30,
 }
 DEFAULT_LOGIC_THRESHOLD_MODE = "quantile"
 DEFAULT_LOGIC_THRESHOLD_QUANTILE = 0.60
@@ -44,6 +45,16 @@ def _normalize_vectors(vectors: np.ndarray) -> np.ndarray:
 
 def _clip01(value: float) -> float:
     return float(np.clip(value, 0.0, 1.0))
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+    except Exception:
+        return float(default)
+    if not np.isfinite(numeric):
+        return float(default)
+    return float(numeric)
 
 
 def _as_string_set(value: Any) -> set[str]:
@@ -821,6 +832,184 @@ def _build_cb_like_edges(
     return pd.DataFrame(edge_rows, columns=base_columns)
 
 
+def _build_temporal_event_features(
+    review_features: pd.DataFrame | None,
+    phi_days: int,
+) -> pd.DataFrame:
+    columns = [
+        "src_user_id",
+        "dst_user_id",
+        "same_product_near_time_count",
+        "same_product_same_day_count",
+        "same_product_within_phi_count",
+        "min_time_gap_days",
+        "mean_time_gap_days",
+        "burst_session_count",
+        "co_burst_group_size_mean",
+        "co_burst_group_size_max",
+        "temporal_score",
+    ]
+    if review_features is None or review_features.empty:
+        return pd.DataFrame(columns=columns)
+
+    phi_days = max(int(phi_days), 1)
+    work = review_features[["user_id", "product_id", "review_datetime"]].copy()
+    work["user_id"] = work["user_id"].astype(str)
+    work["product_id"] = work["product_id"].astype(str)
+    work["review_ts"] = pd.to_datetime(work["review_datetime"], errors="coerce")
+    work = work.dropna(subset=["review_ts"])
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    pair_stats: dict[tuple[str, str], dict[str, Any]] = {}
+    near_time_days = max(phi_days * 2, phi_days + 1)
+
+    for product_id, product_reviews in work.groupby("product_id", sort=False):
+        ordered = product_reviews.sort_values("review_ts").reset_index(drop=True)
+        if len(ordered) <= 1:
+            continue
+        rows = list(ordered.itertuples(index=False))
+        for i, src in enumerate(rows):
+            for j in range(i + 1, len(rows)):
+                dst = rows[j]
+                day_gap = abs((dst.review_ts - src.review_ts).total_seconds()) / 86400.0
+                if day_gap > near_time_days:
+                    break
+                if src.user_id == dst.user_id:
+                    continue
+                key = tuple(sorted((str(src.user_id), str(dst.user_id))))
+                stats = pair_stats.setdefault(
+                    key,
+                    {
+                        "same_product_near_time_count": 0,
+                        "same_product_same_day_count": 0,
+                        "same_product_within_phi_count": 0,
+                        "time_gaps": [],
+                        "burst_group_sizes": [],
+                    },
+                )
+                stats["same_product_near_time_count"] += 1
+                if day_gap <= 0.0:
+                    stats["same_product_same_day_count"] += 1
+                if day_gap <= float(phi_days):
+                    stats["same_product_within_phi_count"] += 1
+                    stats["burst_group_sizes"].append(2)
+                stats["time_gaps"].append(day_gap)
+
+    if not pair_stats:
+        return pd.DataFrame(columns=columns)
+
+    max_within_phi = max(float(stats["same_product_within_phi_count"]) for stats in pair_stats.values())
+    rows: list[dict[str, Any]] = []
+    for (src_user_id, dst_user_id), stats in pair_stats.items():
+        time_gaps = np.asarray(stats["time_gaps"], dtype=np.float32) if stats["time_gaps"] else np.asarray([], dtype=np.float32)
+        min_gap = float(np.min(time_gaps)) if time_gaps.size else float(phi_days + 1)
+        mean_gap = float(np.mean(time_gaps)) if time_gaps.size else float(phi_days + 1)
+        within_phi = float(stats["same_product_within_phi_count"])
+        burst_count = int(within_phi)
+        closeness = _clip01(1.0 / (1.0 + min_gap))
+        within_phi_norm = _clip01(within_phi / max(max_within_phi, 1.0))
+        temporal_score = _clip01(within_phi_norm * closeness)
+        burst_sizes = stats["burst_group_sizes"] or [0]
+        rows.append(
+            {
+                "src_user_id": src_user_id,
+                "dst_user_id": dst_user_id,
+                "same_product_near_time_count": int(stats["same_product_near_time_count"]),
+                "same_product_same_day_count": int(stats["same_product_same_day_count"]),
+                "same_product_within_phi_count": int(stats["same_product_within_phi_count"]),
+                "min_time_gap_days": min_gap,
+                "mean_time_gap_days": mean_gap,
+                "burst_session_count": burst_count,
+                "co_burst_group_size_mean": float(np.mean(burst_sizes)),
+                "co_burst_group_size_max": int(np.max(burst_sizes)),
+                "temporal_score": temporal_score,
+            }
+        )
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _build_tns_guided_logicae_edges(
+    logic_edges: pd.DataFrame,
+    review_features: pd.DataFrame | None,
+    top_k: int,
+    phi_days: int,
+    logic_mode: str,
+    logic_lambda: float,
+    logic_tns_topk: int,
+) -> pd.DataFrame:
+    extra_columns = [
+        "S_logic",
+        "temporal_score",
+        "interaction_score",
+        "same_product_near_time_count",
+        "same_product_same_day_count",
+        "same_product_within_phi_count",
+        "min_time_gap_days",
+        "mean_time_gap_days",
+        "burst_session_count",
+        "co_burst_group_size_mean",
+        "co_burst_group_size_max",
+        "tns_phi_days",
+        "tns_logic_lambda",
+    ]
+    if logic_edges is None or logic_edges.empty:
+        return _empty_edge_frame(extra_columns)
+
+    temporal_df = _build_temporal_event_features(review_features, phi_days=phi_days)
+    if temporal_df.empty:
+        empty_temporal = pd.DataFrame(columns=["src_user_id", "dst_user_id", "temporal_score"])
+        temporal_df = empty_temporal
+
+    logic_mode = str(logic_mode or "boost").lower()
+    logic_lambda = max(float(logic_lambda), 0.0)
+    logic_topk = max(int(logic_tns_topk or top_k), 1)
+
+    temporal_lookup = {
+        tuple(sorted((str(row.src_user_id), str(row.dst_user_id)))): row._asdict()
+        for row in temporal_df.itertuples(index=False)
+    }
+
+    grouped_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in logic_edges.itertuples(index=False):
+        src_user_id = str(row.src_user_id)
+        dst_user_id = str(row.dst_user_id)
+        key = tuple(sorted((src_user_id, dst_user_id)))
+        temporal = temporal_lookup.get(key, {})
+        logic_score = _clip01(_safe_float(getattr(row, "S_logic", getattr(row, "edge_weight", 0.0))))
+        temporal_score = _clip01(_safe_float(temporal.get("temporal_score", 0.0)))
+        if logic_mode == "product":
+            interaction_score = _clip01(logic_score * temporal_score)
+        else:
+            interaction_score = _clip01(logic_score * (1.0 + logic_lambda * temporal_score))
+        edge_row = {
+            "src_user_id": src_user_id,
+            "dst_user_id": dst_user_id,
+            "edge_type": "TNSGuided_LogicAE_CB",
+            "edge_weight": interaction_score,
+            "S_logic": logic_score,
+            "temporal_score": temporal_score,
+            "interaction_score": interaction_score,
+            "same_product_near_time_count": int(temporal.get("same_product_near_time_count", 0)),
+            "same_product_same_day_count": int(temporal.get("same_product_same_day_count", 0)),
+            "same_product_within_phi_count": int(temporal.get("same_product_within_phi_count", 0)),
+            "min_time_gap_days": _safe_float(temporal.get("min_time_gap_days", phi_days + 1)),
+            "mean_time_gap_days": _safe_float(temporal.get("mean_time_gap_days", phi_days + 1)),
+            "burst_session_count": int(temporal.get("burst_session_count", 0)),
+            "co_burst_group_size_mean": _safe_float(temporal.get("co_burst_group_size_mean", 0.0)),
+            "co_burst_group_size_max": int(temporal.get("co_burst_group_size_max", 0)),
+            "tns_phi_days": int(phi_days),
+            "tns_logic_lambda": float(logic_lambda),
+        }
+        grouped_rows[src_user_id].append(edge_row)
+
+    edge_rows: list[dict[str, Any]] = []
+    for rows in grouped_rows.values():
+        rows.sort(key=lambda item: item["interaction_score"], reverse=True)
+        edge_rows.extend(rows[:logic_topk])
+    return pd.DataFrame(edge_rows, columns=EDGE_COLUMNS + extra_columns)
+
+
 def build_edge_frames(
     user_df: pd.DataFrame,
     user_text_vectors: np.ndarray,
@@ -833,6 +1022,11 @@ def build_edge_frames(
     logic_threshold_value: float = DEFAULT_LOGIC_THRESHOLD_VALUE,
     graph_mode: str = "current",
     senior_usu_ratio: float = 0.10,
+    use_tns_guided_logic: bool = False,
+    tns_phi_days: int = 5,
+    tns_logic_mode: str = "boost",
+    tns_logic_lambda: float = 1.0,
+    logic_tns_topk: int = 20,
 ) -> dict[str, pd.DataFrame]:
     output_dir = Path(output_dir)
     edge_dir = output_dir / "edges"
@@ -889,6 +1083,31 @@ def build_edge_frames(
         min_vector_score=tau_logic,
         threshold_column="tau_logic",
     )
+    tns_guided_logicae_edges = _build_tns_guided_logicae_edges(
+        logic_edges=logicae_cb_edges,
+        review_features=review_features,
+        top_k=top_k,
+        phi_days=tns_phi_days,
+        logic_mode=tns_logic_mode,
+        logic_lambda=tns_logic_lambda,
+        logic_tns_topk=logic_tns_topk,
+    ) if use_tns_guided_logic else _empty_edge_frame(
+        [
+            "S_logic",
+            "temporal_score",
+            "interaction_score",
+            "same_product_near_time_count",
+            "same_product_same_day_count",
+            "same_product_within_phi_count",
+            "min_time_gap_days",
+            "mean_time_gap_days",
+            "burst_session_count",
+            "co_burst_group_size_mean",
+            "co_burst_group_size_max",
+            "tns_phi_days",
+            "tns_logic_lambda",
+        ]
+    )
 
     edge_frames = {
         "UPU": upu_edges,
@@ -897,6 +1116,7 @@ def build_edge_frames(
         "TextSim": textsim_edges,
         "CB": cb_edges,
         "LogicAE_CB": logicae_cb_edges,
+        "TNSGuided_LogicAE_CB": tns_guided_logicae_edges,
     }
     for edge_name, frame in edge_frames.items():
         frame.to_csv(edge_dir / f"{edge_name}_edges.csv", index=False)
@@ -912,6 +1132,12 @@ def build_edge_frames(
         "resolved_tau_logic": None if tau_logic is None else float(tau_logic),
         "logic_candidate_edges": int(len(logic_knn_edges)),
         "logicae_cb_edges_after_threshold": int(len(logicae_cb_edges)),
+        "use_tns_guided_logic": bool(use_tns_guided_logic),
+        "tns_phi_days": int(tns_phi_days),
+        "tns_logic_mode": str(tns_logic_mode),
+        "tns_logic_lambda": float(tns_logic_lambda),
+        "logic_tns_topk": int(logic_tns_topk),
+        "tns_guided_logicae_edges": int(len(tns_guided_logicae_edges)),
         "senior_undirected_pair_estimates": {
             "UPU": int(len(upu_edges) // 2),
             "UTU": int(len(utu_edges) // 2),
@@ -1224,12 +1450,14 @@ def annotate_edges_with_pair_scores(
     edge_frames: dict[str, pd.DataFrame],
     user_df: pd.DataFrame,
     user_abnormal_scores: np.ndarray | None,
+    pair_mode: str = "both_high",
 ) -> dict[str, pd.DataFrame]:
     if user_abnormal_scores is None:
         return edge_frames
 
     user_ids = user_df["user_id"].astype(str).tolist()
     score_map = {user_id: float(np.clip(score, 0.0, 1.0)) for user_id, score in zip(user_ids, user_abnormal_scores)}
+    pair_mode = str(pair_mode or "both_high").lower()
     annotated_frames: dict[str, pd.DataFrame] = {}
     for edge_name, frame in edge_frames.items():
         if frame.empty:
@@ -1238,7 +1466,11 @@ def annotate_edges_with_pair_scores(
         work = frame.copy()
         src_scores = work["src_user_id"].astype(str).map(score_map).fillna(0.0).astype(float)
         dst_scores = work["dst_user_id"].astype(str).map(score_map).fillna(0.0).astype(float)
-        work["pair_abnormal_score"] = ((src_scores + dst_scores) / 2.0).clip(0.0, 1.0)
+        if pair_mode == "both_high":
+            pair_score = np.sqrt(src_scores * dst_scores) * (1.0 - np.abs(src_scores - dst_scores))
+        else:
+            pair_score = ((src_scores + dst_scores) / 2.0)
+        work["pair_abnormal_score"] = np.clip(pair_score, 0.0, 1.0)
         work["abnormal_score_src"] = src_scores
         work["abnormal_score_dst"] = dst_scores
         annotated_frames[edge_name] = work
@@ -1249,14 +1481,14 @@ def apply_abnormal_score_edge_transform(
     edge_frames: dict[str, pd.DataFrame],
     user_df: pd.DataFrame,
     user_abnormal_scores: np.ndarray | None,
-    abnormal_edge_lambda: float = 1.0,
-    use_abnormal_gate: bool = False,
+    abnormal_edge_eta: float = 0.5,
+    pair_mode: str = "both_high",
 ) -> dict[str, pd.DataFrame]:
     if user_abnormal_scores is None:
         return edge_frames
 
-    abnormal_edge_lambda = float(max(abnormal_edge_lambda, 0.0))
-    annotated_frames = annotate_edges_with_pair_scores(edge_frames, user_df, user_abnormal_scores)
+    abnormal_edge_eta = float(np.clip(abnormal_edge_eta, 0.0, 1.0))
+    annotated_frames = annotate_edges_with_pair_scores(edge_frames, user_df, user_abnormal_scores, pair_mode=pair_mode)
     transformed_frames: dict[str, pd.DataFrame] = {}
     for edge_name, frame in annotated_frames.items():
         if frame.empty:
@@ -1264,17 +1496,12 @@ def apply_abnormal_score_edge_transform(
             continue
         work = frame.copy()
         pair_score = work["pair_abnormal_score"].fillna(0.0).astype(float).clip(0.0, 1.0)
-        if use_abnormal_gate:
-            gate = 1.0 / (1.0 + np.exp(-(2.0 * pair_score - 1.0) * 4.0))
-            work["abnormal_gate"] = gate.astype(np.float32)
-            work["edge_weight"] = (
-                work["edge_weight"].astype(float).clip(lower=0.0) * (1.0 + abnormal_edge_lambda * pair_score) * gate
-            ).clip(0.0, 1.0)
-        else:
-            work["abnormal_gate"] = 1.0
-            work["edge_weight"] = (
-                work["edge_weight"].astype(float).clip(lower=0.0) * (1.0 + abnormal_edge_lambda * pair_score)
-            ).clip(0.0, 1.0)
+        scale = 1.0 + abnormal_edge_eta * (2.0 * pair_score - 1.0)
+        scale = np.clip(scale, 1.0 - abnormal_edge_eta, 1.0 + abnormal_edge_eta)
+        work["abnormal_gate"] = scale.astype(np.float32)
+        work["edge_weight"] = (
+            work["edge_weight"].astype(float).clip(lower=0.0) * scale
+        ).clip(0.0, 1.0)
         transformed_frames[edge_name] = work
     return transformed_frames
 
@@ -1326,6 +1553,8 @@ def compute_edge_stats(
                 "fake_fake_ratio": float(fake_fake / max(num_edges, 1)),
                 "fake_real_ratio": float(fake_real / max(num_edges, 1)),
                 "real_real_ratio": float(real_real / max(num_edges, 1)),
+                "same_label_ratio": float((fake_fake + real_real) / max(num_edges, 1)),
+                "avg_weight": float(pd.to_numeric(frame.get("edge_weight", 0.0), errors="coerce").fillna(0.0).mean() if num_edges > 0 else 0.0),
             }
         )
 

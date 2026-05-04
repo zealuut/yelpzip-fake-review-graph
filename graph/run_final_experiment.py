@@ -72,15 +72,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--senior_usu_ratio", type=float, default=0.10)
     parser.add_argument("--top_k", type=int, default=20)
     parser.add_argument("--top_m", type=int, default=3)
-    parser.add_argument("--model_backbone", choices=["current_relation", "current_egat", "senior_exact"], default="current_relation")
+    parser.add_argument("--model_backbone", choices=["current_relation", "current_egat", "senior_exact", "senior_topk"], default="current_relation")
     parser.add_argument("--relation_model", choices=["mean", "edge_aware_gat", "relation_attn", "logreg", "mlp"], default="relation_attn")
     parser.add_argument("--edge_set", default=None)
     parser.add_argument("--use_abnormal_edge_weight", action="store_true", default=False)
     parser.add_argument("--use_abnormal_gate", action="store_true", default=False)
+    parser.add_argument("--use_abnormal_value_gate", action="store_true", default=False)
     parser.add_argument("--use_abnormal_attention_bias", action="store_true", default=False)
     parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
+    parser.add_argument("--abnormal_edge_eta", type=float, default=0.5)
+    parser.add_argument("--abnormal_gate_eta", type=float, default=0.5)
+    parser.add_argument("--abnormal_pair_mode", choices=["both_high", "mean"], default="both_high")
+    parser.add_argument("--abnormal_gate_learnable", action="store_true", default=False)
     parser.add_argument("--abnormal_attention_gamma", type=float, default=1.0)
     parser.add_argument("--abnormal_score_source", choices=["auto", "logic_ae", "llm_mask", "review_fake_score", "behavior"], default="auto")
+    parser.add_argument("--use_tns_guided_logic", action="store_true", default=False)
+    parser.add_argument("--tns_phi_days", type=int, default=5)
+    parser.add_argument("--tns_logic_mode", choices=["boost", "product"], default="boost")
+    parser.add_argument("--tns_logic_lambda", type=float, default=1.0)
+    parser.add_argument("--logic_tns_topk", type=int, default=20)
+    parser.add_argument("--use_node_gat", action="store_true", default=False)
+    parser.add_argument("--node_gat_layers", type=int, default=1)
+    parser.add_argument("--node_gat_heads", type=int, default=2)
+    parser.add_argument("--node_gat_hidden_dim", type=int, default=64)
     parser.add_argument("--disable_graph_reweighting", action="store_true", default=False)
     parser.add_argument("--graph_reweight_alpha", type=float, default=0.70)
     parser.add_argument("--graph_support_top_k", type=int, default=20)
@@ -246,6 +260,11 @@ def main() -> None:
         logic_threshold_value=args.logic_threshold_value,
         graph_mode=args.graph_mode,
         senior_usu_ratio=args.senior_usu_ratio,
+        use_tns_guided_logic=args.use_tns_guided_logic,
+        tns_phi_days=args.tns_phi_days,
+        tns_logic_mode=args.tns_logic_mode,
+        tns_logic_lambda=args.tns_logic_lambda,
+        logic_tns_topk=args.logic_tns_topk,
     )
     graph_reweighted_vectors = None
     if not args.disable_graph_reweighting:
@@ -281,12 +300,18 @@ def main() -> None:
             relation_model=args.relation_model,
             use_abnormal_edge_weight=args.use_abnormal_edge_weight,
             use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_value_gate=args.use_abnormal_value_gate,
             use_abnormal_attention_bias=args.use_abnormal_attention_bias,
             abnormal_score_source=args.abnormal_score_source,
             abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_edge_eta=args.abnormal_edge_eta,
+            abnormal_gate_eta=args.abnormal_gate_eta,
+            abnormal_pair_mode=args.abnormal_pair_mode,
+            abnormal_gate_learnable=args.abnormal_gate_learnable,
             abnormal_attention_gamma=args.abnormal_attention_gamma,
             review_scores_df=review_scores_df,
             selected_edge_set=args.edge_set,
+            use_node_gat=args.use_node_gat,
         )
     else:
         initial_results_df = run_relation_aggregation_experiments(
@@ -302,12 +327,18 @@ def main() -> None:
             relation_model=args.relation_model,
             use_abnormal_edge_weight=args.use_abnormal_edge_weight,
             use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_value_gate=args.use_abnormal_value_gate,
             use_abnormal_attention_bias=args.use_abnormal_attention_bias,
             abnormal_score_source=args.abnormal_score_source,
             abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_edge_eta=args.abnormal_edge_eta,
+            abnormal_gate_eta=args.abnormal_gate_eta,
+            abnormal_pair_mode=args.abnormal_pair_mode,
+            abnormal_gate_learnable=args.abnormal_gate_learnable,
             abnormal_attention_gamma=args.abnormal_attention_gamma,
             review_scores_df=review_scores_df,
             selected_edge_set=args.edge_set,
+            use_node_gat=args.use_node_gat,
         )
         reweighted_self_features = build_self_feature_matrix(user_df, graph_reweighted_vectors)
         reweighted_results_df = run_relation_aggregation_experiments(
@@ -323,12 +354,18 @@ def main() -> None:
             relation_model=args.relation_model,
             use_abnormal_edge_weight=args.use_abnormal_edge_weight,
             use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_value_gate=args.use_abnormal_value_gate,
             use_abnormal_attention_bias=args.use_abnormal_attention_bias,
             abnormal_score_source=args.abnormal_score_source,
             abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_edge_eta=args.abnormal_edge_eta,
+            abnormal_gate_eta=args.abnormal_gate_eta,
+            abnormal_pair_mode=args.abnormal_pair_mode,
+            abnormal_gate_learnable=args.abnormal_gate_learnable,
             abnormal_attention_gamma=args.abnormal_attention_gamma,
             review_scores_df=review_scores_df,
             selected_edge_set=args.edge_set,
+            use_node_gat=args.use_node_gat,
         )
         model_results_df = pd.concat([initial_results_df, reweighted_results_df], ignore_index=True)
         model_results_df.to_csv(metrics_dir / "model_results.csv", index=False)
@@ -366,8 +403,22 @@ def main() -> None:
         "edge_set": args.edge_set,
         "use_abnormal_edge_weight": bool(args.use_abnormal_edge_weight),
         "use_abnormal_gate": bool(args.use_abnormal_gate),
+        "use_abnormal_value_gate": bool(args.use_abnormal_value_gate),
         "use_abnormal_attention_bias": bool(args.use_abnormal_attention_bias),
         "abnormal_score_source": args.abnormal_score_source,
+        "abnormal_pair_mode": args.abnormal_pair_mode,
+        "abnormal_edge_eta": float(args.abnormal_edge_eta),
+        "abnormal_gate_eta": float(args.abnormal_gate_eta),
+        "abnormal_gate_learnable": bool(args.abnormal_gate_learnable),
+        "use_tns_guided_logic": bool(args.use_tns_guided_logic),
+        "tns_phi_days": int(args.tns_phi_days),
+        "tns_logic_mode": args.tns_logic_mode,
+        "tns_logic_lambda": float(args.tns_logic_lambda),
+        "logic_tns_topk": int(args.logic_tns_topk),
+        "use_node_gat": bool(args.use_node_gat),
+        "node_gat_layers": int(args.node_gat_layers),
+        "node_gat_heads": int(args.node_gat_heads),
+        "node_gat_hidden_dim": int(args.node_gat_hidden_dim),
         "graph_reweighting_enabled": not bool(args.disable_graph_reweighting),
         "review_count": int(len(prepared.review_df)),
         "user_count": int(len(user_df)),

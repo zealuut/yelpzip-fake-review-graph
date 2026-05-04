@@ -49,13 +49,73 @@ ROUTE_EXPERIMENTS = {
         },
     ],
     "C": [
-        {"name": "C0_current_Base_LogicAE_CB", "edge_set": "Base_LogicAE_CB", "backbone": "current_relation", "relation_model": "relation_attn"},
-        {"name": "C1_current_Base_CB_abnormal_edge_weight", "edge_set": "Base_CB", "backbone": "current_relation", "relation_model": "relation_attn", "use_abnormal_edge_weight": True},
-        {"name": "C2_current_Base_CB_abnormal_gate", "edge_set": "Base_CB", "backbone": "current_relation", "relation_model": "relation_attn", "use_abnormal_gate": True, "use_abnormal_edge_weight": True},
-        {"name": "C3_current_EGAT_Base_CB_abnormal_attention_bias", "edge_set": "Base_CB", "backbone": "current_egat", "relation_model": "edge_aware_gat", "use_abnormal_attention_bias": True},
-        {"name": "C4_senior_SeniorBaseExact_LogicAE_CB", "edge_set": "Base_LogicAE_CB", "backbone": "senior_exact", "relation_model": "edge_aware_gat", "base_dir": str(ROUTE_B_BASE)},
-        {"name": "C5_senior_SeniorBaseExact_CB_abnormal_edge_weight", "edge_set": "Base_CB", "backbone": "senior_exact", "relation_model": "edge_aware_gat", "base_dir": str(ROUTE_B_BASE), "use_abnormal_edge_weight": True},
-        {"name": "C6_senior_SeniorBaseExact_abnormal_attention_bias", "edge_set": "Base_CB", "backbone": "senior_exact", "relation_model": "edge_aware_gat", "base_dir": str(ROUTE_B_BASE), "use_abnormal_attention_bias": True},
+        {
+            "name": "C_next_1_Base_CB_bounded_abnormal_weight_eta03",
+            "edge_set": "Base_CB",
+            "backbone": "current_relation",
+            "relation_model": "relation_attn",
+            "use_abnormal_edge_weight": True,
+            "abnormal_edge_eta": 0.3,
+            "abnormal_pair_mode": "both_high",
+        },
+        {
+            "name": "C_next_2_Base_CB_bounded_abnormal_weight_eta05",
+            "edge_set": "Base_CB",
+            "backbone": "current_relation",
+            "relation_model": "relation_attn",
+            "use_abnormal_edge_weight": True,
+            "abnormal_edge_eta": 0.5,
+            "abnormal_pair_mode": "both_high",
+        },
+        {
+            "name": "C_next_3_Base_CB_learnable_abnormal_gate",
+            "edge_set": "Base_CB",
+            "backbone": "current_relation",
+            "relation_model": "relation_attn",
+            "use_abnormal_gate": True,
+            "abnormal_gate_learnable": True,
+            "abnormal_gate_eta": 0.5,
+            "abnormal_pair_mode": "both_high",
+        },
+        {
+            "name": "C_next_4_EGAT_Base_CB_post_attention_value_gate",
+            "edge_set": "Base_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_abnormal_value_gate": True,
+            "abnormal_gate_eta": 0.5,
+            "abnormal_pair_mode": "both_high",
+        },
+    ],
+    "D": [
+        {
+            "name": "D1_EGAT_Base_LogicAE_CB",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+        },
+        {
+            "name": "D2_EGAT_Base_TNSGuided_LogicAE_CB",
+            "edge_set": "Base_TNSGuided_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_guided_logic": True,
+        },
+        {
+            "name": "D3_EGAT_Base_CB_TNSGuided_LogicAE_CB",
+            "edge_set": "Base_CB_TNSGuided_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_guided_logic": True,
+        },
+        {
+            "name": "D4_EGAT_Base_TNSGuided_LogicAE_CB_NodeGAT1",
+            "edge_set": "Base_TNSGuided_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_guided_logic": True,
+            "use_node_gat": True,
+        },
     ],
 }
 
@@ -82,12 +142,20 @@ def _read_senior_notes() -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run route experiments from existing in-repo artifacts.")
-    parser.add_argument("--route", choices=["A", "B", "C"], required=True)
+    parser.add_argument("--route", choices=["A", "B", "C", "D"], required=True)
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
+    parser.add_argument("--abnormal_edge_eta", type=float, default=0.5)
+    parser.add_argument("--abnormal_gate_eta", type=float, default=0.5)
+    parser.add_argument("--abnormal_pair_mode", default="both_high")
+    parser.add_argument("--abnormal_gate_learnable", action="store_true", default=False)
     parser.add_argument("--abnormal_attention_gamma", type=float, default=1.0)
     parser.add_argument("--abnormal_score_source", default="auto")
+    parser.add_argument("--tns_phi_days", type=int, default=5)
+    parser.add_argument("--tns_logic_mode", default="boost")
+    parser.add_argument("--tns_logic_lambda", type=float, default=1.0)
+    parser.add_argument("--logic_tns_topk", type=int, default=20)
     return parser.parse_args()
 
 
@@ -157,14 +225,6 @@ def run_route(args: argparse.Namespace) -> Path:
     top_k = int(base_cfg.get("top_k", 20))
     senior_usu_ratio = float(base_cfg.get("senior_usu_ratio", 0.10))
 
-    edge_frames = _build_route_edges(
-        base_artifacts=base_artifacts,
-        graph_mode=graph_mode,
-        top_k=top_k,
-        senior_usu_ratio=senior_usu_ratio,
-        route_output_dir=output_root,
-    )
-    edge_stats_df = compute_edge_stats(edge_frames=edge_frames, user_df=base_artifacts["user_df"], output_dir=output_root)
     self_features = build_self_feature_matrix(base_artifacts["user_df"], base_artifacts["user_abnormal_vectors"])
 
     senior_notes = _read_senior_notes() if args.route in {"B", "C"} else None
@@ -188,14 +248,33 @@ def run_route(args: argparse.Namespace) -> Path:
         exp_base_dir = Path(exp.get("base_dir", str(base_dir)))
         exp_artifacts = base_artifacts if exp_base_dir == base_dir else _load_base_artifacts(exp_base_dir)
         exp_graph_mode = "senior" if "senior" in exp_name.lower() or exp["backbone"] == "senior_exact" else "current"
-        exp_edge_frames = edge_frames if exp_base_dir == base_dir and exp_graph_mode == graph_mode else _build_route_edges(
+        exp_edge_frames = _build_route_edges(
             base_artifacts=exp_artifacts,
             graph_mode=exp_graph_mode,
             top_k=top_k,
             senior_usu_ratio=senior_usu_ratio,
             route_output_dir=exp_dir,
         )
-        exp_edge_stats_df = edge_stats_df if exp_base_dir == base_dir and exp_graph_mode == graph_mode else compute_edge_stats(
+        if exp.get("use_tns_guided_logic", False):
+            exp_edge_frames = build_edge_frames(
+                user_df=exp_artifacts["user_df"],
+                user_text_vectors=exp_artifacts["user_text_vectors"],
+                user_abnormal_vectors=exp_artifacts["user_abnormal_vectors"],
+                output_dir=exp_dir,
+                top_k=top_k,
+                review_features=exp_artifacts["review_scores_df"],
+                logic_threshold_mode="quantile",
+                logic_threshold_quantile=0.60,
+                logic_threshold_value=0.30,
+                graph_mode=exp_graph_mode,
+                senior_usu_ratio=senior_usu_ratio,
+                use_tns_guided_logic=True,
+                tns_phi_days=args.tns_phi_days,
+                tns_logic_mode=args.tns_logic_mode,
+                tns_logic_lambda=args.tns_logic_lambda,
+                logic_tns_topk=args.logic_tns_topk,
+            )
+        exp_edge_stats_df = compute_edge_stats(
             edge_frames=exp_edge_frames,
             user_df=exp_artifacts["user_df"],
             output_dir=exp_dir,
@@ -217,13 +296,19 @@ def run_route(args: argparse.Namespace) -> Path:
             relation_model=exp["relation_model"],
             use_abnormal_edge_weight=bool(exp.get("use_abnormal_edge_weight", False)),
             use_abnormal_gate=bool(exp.get("use_abnormal_gate", False)),
+            use_abnormal_value_gate=bool(exp.get("use_abnormal_value_gate", False)),
             use_abnormal_attention_bias=bool(exp.get("use_abnormal_attention_bias", False)),
             abnormal_score_source=args.abnormal_score_source,
             abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_edge_eta=float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
+            abnormal_gate_eta=float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
+            abnormal_pair_mode=str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
+            abnormal_gate_learnable=bool(exp.get("abnormal_gate_learnable", args.abnormal_gate_learnable)),
             abnormal_attention_gamma=args.abnormal_attention_gamma,
             review_scores_df=exp_artifacts["review_scores_df"],
             selected_edge_set=exp["edge_set"],
             relation_topk=exp.get("relation_topk"),
+            use_node_gat=bool(exp.get("use_node_gat", False)),
         )
 
         graph_rows = result_df[result_df["edge_set"] == exp["edge_set"]].copy()
@@ -240,10 +325,21 @@ def run_route(args: argparse.Namespace) -> Path:
             "relation_topk": exp.get("relation_topk"),
             "use_abnormal_edge_weight": bool(exp.get("use_abnormal_edge_weight", False)),
             "use_abnormal_gate": bool(exp.get("use_abnormal_gate", False)),
+            "use_abnormal_value_gate": bool(exp.get("use_abnormal_value_gate", False)),
             "use_abnormal_attention_bias": bool(exp.get("use_abnormal_attention_bias", False)),
             "abnormal_edge_lambda": float(args.abnormal_edge_lambda),
+            "abnormal_edge_eta": float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
+            "abnormal_gate_eta": float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
+            "abnormal_pair_mode": str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
+            "abnormal_gate_learnable": bool(exp.get("abnormal_gate_learnable", args.abnormal_gate_learnable)),
             "abnormal_attention_gamma": float(args.abnormal_attention_gamma),
             "abnormal_score_source": args.abnormal_score_source,
+            "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
+            "tns_phi_days": int(args.tns_phi_days),
+            "tns_logic_mode": str(args.tns_logic_mode),
+            "tns_logic_lambda": float(args.tns_logic_lambda),
+            "logic_tns_topk": int(args.logic_tns_topk),
+            "use_node_gat": bool(exp.get("use_node_gat", False)),
             "seed": int(args.seed),
         }
         if args.route == "B":
@@ -262,11 +358,6 @@ def run_route(args: argparse.Namespace) -> Path:
             ),
             encoding="utf-8",
         )
-        if exp_graph_mode == graph_mode and exp_base_dir == base_dir:
-            _copy_if_exists(output_root / "edges" / "edge_build_config.json", exp_dir / "edges" / "edge_build_config.json")
-            _copy_if_exists(output_root / "metrics" / "edge_stats.csv", exp_dir / "metrics" / "edge_stats.csv")
-        else:
-            pass
         train_lines.append(f"{exp_name}: auc={best_row.get('auc')} ap={best_row.get('ap')} f1={best_row.get('f1')}")
         route_rows.append(
             {
@@ -280,8 +371,18 @@ def run_route(args: argparse.Namespace) -> Path:
                 "relation_topk": exp.get("relation_topk"),
                 "use_abnormal_edge_weight": bool(exp.get("use_abnormal_edge_weight", False)),
                 "use_abnormal_gate": bool(exp.get("use_abnormal_gate", False)),
+                "use_abnormal_value_gate": bool(exp.get("use_abnormal_value_gate", False)),
                 "use_abnormal_attention_bias": bool(exp.get("use_abnormal_attention_bias", False)),
                 "abnormal_score_source": args.abnormal_score_source,
+                "abnormal_pair_mode": str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
+                "abnormal_edge_eta": float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
+                "abnormal_gate_eta": float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
+                "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
+                "tns_phi_days": int(args.tns_phi_days),
+                "tns_logic_mode": str(args.tns_logic_mode),
+                "tns_logic_lambda": float(args.tns_logic_lambda),
+                "logic_tns_topk": int(args.logic_tns_topk),
+                "use_node_gat": bool(exp.get("use_node_gat", False)),
                 "AUC": best_row.get("auc"),
                 "AP": best_row.get("ap"),
                 "F1": best_row.get("f1"),
@@ -295,11 +396,15 @@ def run_route(args: argparse.Namespace) -> Path:
 
     summary_df = pd.DataFrame(route_rows)
     summary_df.to_csv(output_root / "route_summary.csv", index=False)
+    (output_root / "route_summary.md").write_text(summary_df.to_csv(index=False), encoding="utf-8")
     route_config = {
         "route": args.route,
         "output_root": str(output_root),
         "seed": int(args.seed),
         "abnormal_edge_lambda": float(args.abnormal_edge_lambda),
+        "abnormal_edge_eta": float(args.abnormal_edge_eta),
+        "abnormal_gate_eta": float(args.abnormal_gate_eta),
+        "abnormal_pair_mode": args.abnormal_pair_mode,
         "abnormal_attention_gamma": float(args.abnormal_attention_gamma),
         "abnormal_score_source": args.abnormal_score_source,
         "base_dir": str(base_dir),
@@ -307,6 +412,10 @@ def run_route(args: argparse.Namespace) -> Path:
         "top_k": top_k,
         "senior_usu_ratio": senior_usu_ratio,
         "senior_relation_topk": 20 if args.route == "B" else None,
+        "tns_phi_days": int(args.tns_phi_days),
+        "tns_logic_mode": str(args.tns_logic_mode),
+        "tns_logic_lambda": float(args.tns_logic_lambda),
+        "logic_tns_topk": int(args.logic_tns_topk),
     }
     route_best = summary_df.sort_values("AUC", ascending=False).iloc[0].to_dict() if not summary_df.empty else None
     (output_root / "config.json").write_text(json.dumps(route_config, indent=2, ensure_ascii=False), encoding="utf-8")

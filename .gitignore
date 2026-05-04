@@ -17,7 +17,9 @@ graph/outputs/**
 !graph/outputs/**/
 !graph/outputs/**/run_config.json
 !graph/outputs/**/run_summary.json
+!graph/outputs/**/config.json
 !graph/outputs/**/route_summary.csv
+!graph/outputs/**/route_summary.md
 !graph/outputs/**/analysis_*.md
 !graph/outputs/**/comparison_vs_*.md
 !graph/outputs/**/prepared_data/dataset_metadata.json

@@ -1,0 +1,20 @@
+{
+  "route": "C",
+  "output_root": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeC_abnormal_reliability_gate_20260504_211823",
+  "seed": 42,
+  "abnormal_edge_lambda": 1.0,
+  "abnormal_edge_eta": 0.5,
+  "abnormal_gate_eta": 0.5,
+  "abnormal_pair_mode": "both_high",
+  "abnormal_attention_gamma": 1.0,
+  "abnormal_score_source": "auto",
+  "base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+  "graph_mode": "current",
+  "top_k": 20,
+  "senior_usu_ratio": 0.1,
+  "senior_relation_topk": null,
+  "tns_phi_days": 5,
+  "tns_logic_mode": "boost",
+  "tns_logic_lambda": 1.0,
+  "logic_tns_topk": 20
+}

@@ -40,7 +40,8 @@ def main() -> None:
     route_map = {
         "RouteA": _latest_dirs("routeA_current_topk_egat"),
         "RouteB": _latest_dirs("routeB_senior_exact_plus_logic_edges"),
-        "RouteC": _latest_dirs("routeC_abnormal_score_weight_gate"),
+        "RouteC": _latest_dirs("routeC_abnormal_reliability_gate"),
+        "RouteD": _latest_dirs("routeD_tns_guided_logic_egat"),
     }
 
     all_rows = []
@@ -79,7 +80,7 @@ def main() -> None:
     )
     lines.extend(
         _format_compare(
-            "Route C: LogicAE as edge vs abnormal score as edge weight/gate/attention bias",
+            "Route C: abnormal reliability gate on Base_CB",
             route_payloads.get("RouteC", ([], {}))[0],
             [
                 "route",
@@ -89,8 +90,33 @@ def main() -> None:
                 "relation_model",
                 "use_abnormal_edge_weight",
                 "use_abnormal_gate",
+                "use_abnormal_value_gate",
                 "use_abnormal_attention_bias",
                 "abnormal_score_source",
+                "AUC",
+                "AP",
+                "F1",
+                "Recall",
+                "Precision",
+            ],
+        )
+    )
+    lines.extend(
+        _format_compare(
+            "Route D: TNS-guided LogicAE on current EGAT",
+            route_payloads.get("RouteD", ([], {}))[0],
+            [
+                "route",
+                "output_dir",
+                "edge_set",
+                "backbone",
+                "relation_model",
+                "use_tns_guided_logic",
+                "tns_phi_days",
+                "tns_logic_mode",
+                "tns_logic_lambda",
+                "logic_tns_topk",
+                "use_node_gat",
                 "AUC",
                 "AP",
                 "F1",
