@@ -1,0 +1,7 @@
+review_encoder,model_name,edge_set,threshold,val_auc,val_ap,auc,ap,recall,precision,f1,accuracy,num_train_users,num_val_users,num_test_users,num_fake_train,num_fake_val,num_fake_test
+data_only_mock,relation_agg_logreg,MLP_no_graph,0.5,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,55,12,13,28,6,6
+data_only_mock,relation_agg_logreg,Base,0.5,1.0,1.0,1.0,1.0,0.8333333333333334,1.0,0.9090909090909091,0.9230769230769231,55,12,13,28,6,6
+data_only_mock,relation_agg_logreg,Base_TextSim,0.5,1.0,1.0,0.9761904761904763,0.976190476190476,0.6666666666666666,1.0,0.8,0.8461538461538461,55,12,13,28,6,6
+data_only_mock,relation_agg_logreg,Base_CB,0.5,1.0,1.0,0.9761904761904763,0.976190476190476,0.6666666666666666,1.0,0.8,0.8461538461538461,55,12,13,28,6,6
+data_only_mock,relation_agg_logreg,Base_LogicAE_CB,0.5,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,55,12,13,28,6,6
+data_only_mock,relation_agg_logreg,Full,0.5,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,55,12,13,28,6,6

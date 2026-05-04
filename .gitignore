@@ -17,12 +17,17 @@ graph/outputs/**
 !graph/outputs/**/
 !graph/outputs/**/run_config.json
 !graph/outputs/**/run_summary.json
+!graph/outputs/**/route_summary.csv
 !graph/outputs/**/analysis_*.md
 !graph/outputs/**/comparison_vs_*.md
 !graph/outputs/**/prepared_data/dataset_metadata.json
+graph/outputs/**/prepared_data/*
+graph/outputs/**/edges/*.csv
 !graph/outputs/**/metrics/model_results*.csv
 !graph/outputs/**/metrics/edge_stats.csv
 !graph/outputs/**/edges/edge_build_config.json
+!graph/outputs/three_routes_summary_*.csv
+!graph/outputs/three_routes_summary_*.md
 graph/__pycache__/
 local_models/
 pretrain_model/

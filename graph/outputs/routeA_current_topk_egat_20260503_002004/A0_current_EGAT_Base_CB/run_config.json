@@ -1,0 +1,17 @@
+{
+  "route": "A",
+  "experiment_name": "A0_current_EGAT_Base_CB",
+  "output_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeA_current_topk_egat_20260503_002004/A0_current_EGAT_Base_CB",
+  "base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+  "graph_mode": "current",
+  "edge_set": "Base_CB",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "use_abnormal_edge_weight": false,
+  "use_abnormal_gate": false,
+  "use_abnormal_attention_bias": false,
+  "abnormal_edge_lambda": 1.0,
+  "abnormal_attention_gamma": 1.0,
+  "abnormal_score_source": "auto",
+  "seed": 42
+}

@@ -72,6 +72,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--senior_usu_ratio", type=float, default=0.10)
     parser.add_argument("--top_k", type=int, default=20)
     parser.add_argument("--top_m", type=int, default=3)
+    parser.add_argument("--model_backbone", choices=["current_relation", "current_egat", "senior_exact"], default="current_relation")
+    parser.add_argument("--relation_model", choices=["mean", "edge_aware_gat", "relation_attn", "logreg", "mlp"], default="relation_attn")
+    parser.add_argument("--edge_set", default=None)
+    parser.add_argument("--use_abnormal_edge_weight", action="store_true", default=False)
+    parser.add_argument("--use_abnormal_gate", action="store_true", default=False)
+    parser.add_argument("--use_abnormal_attention_bias", action="store_true", default=False)
+    parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
+    parser.add_argument("--abnormal_attention_gamma", type=float, default=1.0)
+    parser.add_argument("--abnormal_score_source", choices=["auto", "logic_ae", "llm_mask", "review_fake_score", "behavior"], default="auto")
     parser.add_argument("--disable_graph_reweighting", action="store_true", default=False)
     parser.add_argument("--graph_reweight_alpha", type=float, default=0.70)
     parser.add_argument("--graph_support_top_k", type=int, default=20)
@@ -91,7 +100,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--freeze_primary", action="store_true", default=False)
     parser.add_argument("--freeze_secondary", action="store_true", default=False)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--relation_model", choices=["logreg", "mlp", "relation_attn"], default="relation_attn")
     parser.add_argument("--run_legacy_baselines", action="store_true", default=False)
     parser.add_argument("--legacy_roberta_model_dir", default="roberta-base")
     parser.add_argument("--legacy_gpu_ids", default="0")
@@ -269,6 +277,16 @@ def main() -> None:
             review_encoder_name=args.review_encoder,
             model_kind=args.relation_model,
             seed=args.seed,
+            backbone=args.model_backbone,
+            relation_model=args.relation_model,
+            use_abnormal_edge_weight=args.use_abnormal_edge_weight,
+            use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_attention_bias=args.use_abnormal_attention_bias,
+            abnormal_score_source=args.abnormal_score_source,
+            abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_attention_gamma=args.abnormal_attention_gamma,
+            review_scores_df=review_scores_df,
+            selected_edge_set=args.edge_set,
         )
     else:
         initial_results_df = run_relation_aggregation_experiments(
@@ -280,6 +298,16 @@ def main() -> None:
             model_kind=args.relation_model,
             seed=args.seed,
             results_filename="model_results_initial.csv",
+            backbone=args.model_backbone,
+            relation_model=args.relation_model,
+            use_abnormal_edge_weight=args.use_abnormal_edge_weight,
+            use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_attention_bias=args.use_abnormal_attention_bias,
+            abnormal_score_source=args.abnormal_score_source,
+            abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_attention_gamma=args.abnormal_attention_gamma,
+            review_scores_df=review_scores_df,
+            selected_edge_set=args.edge_set,
         )
         reweighted_self_features = build_self_feature_matrix(user_df, graph_reweighted_vectors)
         reweighted_results_df = run_relation_aggregation_experiments(
@@ -291,6 +319,16 @@ def main() -> None:
             model_kind=args.relation_model,
             seed=args.seed,
             results_filename="model_results_graph_reweighted.csv",
+            backbone=args.model_backbone,
+            relation_model=args.relation_model,
+            use_abnormal_edge_weight=args.use_abnormal_edge_weight,
+            use_abnormal_gate=args.use_abnormal_gate,
+            use_abnormal_attention_bias=args.use_abnormal_attention_bias,
+            abnormal_score_source=args.abnormal_score_source,
+            abnormal_edge_lambda=args.abnormal_edge_lambda,
+            abnormal_attention_gamma=args.abnormal_attention_gamma,
+            review_scores_df=review_scores_df,
+            selected_edge_set=args.edge_set,
         )
         model_results_df = pd.concat([initial_results_df, reweighted_results_df], ignore_index=True)
         model_results_df.to_csv(metrics_dir / "model_results.csv", index=False)
@@ -323,6 +361,13 @@ def main() -> None:
         "balance_user_labels": bool(args.balance_user_labels),
         "balanced_user_count": int(args.balanced_user_count),
         "graph_mode": args.graph_mode,
+        "model_backbone": args.model_backbone,
+        "relation_model": args.relation_model,
+        "edge_set": args.edge_set,
+        "use_abnormal_edge_weight": bool(args.use_abnormal_edge_weight),
+        "use_abnormal_gate": bool(args.use_abnormal_gate),
+        "use_abnormal_attention_bias": bool(args.use_abnormal_attention_bias),
+        "abnormal_score_source": args.abnormal_score_source,
         "graph_reweighting_enabled": not bool(args.disable_graph_reweighting),
         "review_count": int(len(prepared.review_df)),
         "user_count": int(len(user_df)),

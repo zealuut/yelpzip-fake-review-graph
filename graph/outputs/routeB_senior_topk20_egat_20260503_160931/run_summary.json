@@ -1,0 +1,50 @@
+{
+  "route": "B",
+  "output_root": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeB_senior_topk20_egat_20260503_160931",
+  "seed": 42,
+  "abnormal_edge_lambda": 1.0,
+  "abnormal_attention_gamma": 1.0,
+  "abnormal_score_source": "auto",
+  "base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_senior_backbone_clean_formal_20260502_101931",
+  "graph_mode": "senior",
+  "top_k": 20,
+  "senior_usu_ratio": 0.1,
+  "senior_relation_topk": 20,
+  "best_experiment": {
+    "route": "B",
+    "output_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeB_senior_topk20_egat_20260503_160931/B2_SeniorTopK20_Full",
+    "model_name": "senior_topk_edge_aware_gat",
+    "graph_mode": "senior",
+    "edge_set": "Full",
+    "backbone": "senior_topk",
+    "relation_model": "edge_aware_gat",
+    "relation_topk": 20,
+    "use_abnormal_edge_weight": false,
+    "use_abnormal_gate": false,
+    "use_abnormal_attention_bias": false,
+    "abnormal_score_source": "auto",
+    "AUC": 0.810548249113824,
+    "AP": 0.8022148669935573,
+    "F1": 0.7549407114624506,
+    "Recall": 0.8590704647676162,
+    "Precision": 0.6733254994124559,
+    "best_epoch": null,
+    "seed": 42,
+    "notes": "SeniorBaseExact is paper-aligned using in-repo code and text stats only; not a claim of full exact paper reproduction."
+  },
+  "senior_exact_notes": {
+    "txt_path": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/senior_paper_text.txt",
+    "key_structures": [
+      "UPU / UTU / USU",
+      "behavioral + textual statistical features",
+      "relation-specific multi-head GAT",
+      "relation-level attention fusion",
+      "node-level multi-layer GAT with residual",
+      "LayerNorm + dropout",
+      "multi-scale feature fusion"
+    ],
+    "notes": "SeniorBaseExact is paper-aligned using in-repo code and text stats only; not a claim of full exact paper reproduction.",
+    "txt_excerpt_hint": "GAT heads main=8, relation=4, 1:1 undersampling, 6.4/1.6/2.0 split, USU top 10%.",
+    "senior_topk_note": "SeniorTopK20_EGAT keeps senior relation definitions (UPU/UTU/USU) but prunes each relation per node to top-k neighbors; this is a senior relation top-k baseline, not full SeniorBaseExact."
+  }
+}

@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import pandas as pd
@@ -29,6 +30,63 @@ DEFAULT_PREPARED_DIR = PROJECT_ROOT / "graph" / "outputs" / "yelpzip_final" / "p
 DEFAULT_OUTPUT_JSONL = PROJECT_ROOT / "graph" / "outputs" / "llm_cache" / "yelpzip_llm_abnormal_patterns.jsonl"
 DEFAULT_PROMPT_PATH = PROJECT_ROOT / "graph" / "prompts" / "llm_abnormal_pattern_extraction.txt"
 DEFAULT_COMPACT_PROMPT_PATH = PROJECT_ROOT / "graph" / "prompts" / "llm_abnormal_pattern_extraction_compact.txt"
+
+
+class DualRateLimiter:
+    def __init__(
+        self,
+        rpm_limit: int,
+        tpm_limit: int,
+        safety: float,
+        expected_output_tokens: int,
+    ) -> None:
+        self.request_capacity = max(1, int(rpm_limit * safety))
+        self.token_capacity = max(1, int(tpm_limit * safety))
+        self.expected_output_tokens = max(0, expected_output_tokens)
+        self.request_tokens = float(self.request_capacity)
+        self.token_tokens = float(self.token_capacity)
+        self.request_refill_rate = self.request_capacity / 60.0
+        self.token_refill_rate = self.token_capacity / 60.0
+        self.last_update = time.monotonic()
+        self.lock = Lock()
+
+    @staticmethod
+    def _estimate_prompt_tokens(prompt: str) -> int:
+        return max(1, int(len(prompt) / 4))
+
+    def acquire(self, prompt: str) -> None:
+        cost = self._estimate_prompt_tokens(prompt) + self.expected_output_tokens
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                elapsed = now - self.last_update
+                if elapsed > 0:
+                    self.request_tokens = min(
+                        float(self.request_capacity),
+                        self.request_tokens + elapsed * self.request_refill_rate,
+                    )
+                    self.token_tokens = min(
+                        float(self.token_capacity),
+                        self.token_tokens + elapsed * self.token_refill_rate,
+                    )
+                    self.last_update = now
+
+                if self.request_tokens >= 1.0 and self.token_tokens >= float(cost):
+                    self.request_tokens -= 1.0
+                    self.token_tokens -= float(cost)
+                    return
+
+                wait_request = 0.0
+                if self.request_tokens < 1.0:
+                    wait_request = (1.0 - self.request_tokens) / self.request_refill_rate
+
+                wait_tokens = 0.0
+                if self.token_tokens < float(cost):
+                    wait_tokens = (float(cost) - self.token_tokens) / self.token_refill_rate
+
+                wait_time = max(wait_request, wait_tokens, 0.05)
+
+            time.sleep(wait_time)
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,6 +122,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--start_review_node_id", type=int, default=0)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--max_in_flight", type=int, default=0)
+    parser.add_argument("--rpm_limit", type=int, default=0)
+    parser.add_argument("--tpm_limit", type=int, default=0)
+    parser.add_argument("--rate_limit_safety", type=float, default=1.0)
+    parser.add_argument("--expected_output_tokens", type=int, default=0)
+    parser.add_argument("--min_retry_after", type=float, default=0.0)
     parser.add_argument("--model", default=os.environ.get("LLM_MODEL", "gpt-4o-mini"))
     parser.add_argument("--base_url", default=os.environ.get("LLM_BASE_URL", os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")))
     parser.add_argument("--api_key", default=os.environ.get("LLM_API_KEY", os.environ.get("OPENAI_API_KEY")))
@@ -172,7 +236,11 @@ def render_prompt(prompt_template: str, review_text: str, rating: Any) -> str:
 def call_chat_completion(
     prompt: str,
     args: argparse.Namespace,
+    rate_limiter: DualRateLimiter | None = None,
 ) -> str:
+    if rate_limiter is not None:
+        rate_limiter.acquire(prompt)
+
     body: dict[str, Any] = {
         "model": args.model,
         "messages": [
@@ -205,14 +273,29 @@ def call_chat_completion(
     return payload["choices"][0]["message"]["content"]
 
 
-def generate_one(record: dict[str, Any], prompt_template: str, args: argparse.Namespace) -> dict[str, Any]:
+def sanitize_for_json(obj: Any) -> Any:
+    if isinstance(obj, str):
+        return obj.encode("utf-8", "ignore").decode("utf-8", "ignore")
+    if isinstance(obj, list):
+        return [sanitize_for_json(item) for item in obj]
+    if isinstance(obj, dict):
+        return {str(key): sanitize_for_json(value) for key, value in obj.items()}
+    return obj
+
+
+def generate_one(
+    record: dict[str, Any],
+    prompt_template: str,
+    args: argparse.Namespace,
+    rate_limiter: DualRateLimiter | None = None,
+) -> dict[str, Any]:
     review_node_id = int(record["review_node_id"])
     prompt = render_prompt(prompt_template, record["review_text"], record["rating"])
     last_error: Exception | None = None
 
     for attempt in range(args.retries + 1):
         try:
-            content = call_chat_completion(prompt, args)
+            content = call_chat_completion(prompt, args, rate_limiter=rate_limiter)
             payload = extract_json_object(content)
             payload["review_node_id"] = review_node_id
             return normalize_llm_payload(payload)
@@ -221,6 +304,15 @@ def generate_one(record: dict[str, Any], prompt_template: str, args: argparse.Na
             if attempt >= args.retries:
                 break
             sleep_seconds = args.retry_sleep * (2 ** attempt)
+            if isinstance(exc, urllib.error.HTTPError):
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                if retry_after is not None:
+                    try:
+                        sleep_seconds = max(sleep_seconds, float(retry_after))
+                    except ValueError:
+                        pass
+                if exc.code == 429:
+                    sleep_seconds = max(sleep_seconds, args.min_retry_after)
             time.sleep(sleep_seconds)
 
     if args.continue_on_error:
@@ -336,6 +428,13 @@ def main() -> None:
     print(f"Output JSONL: {output_jsonl}")
     print(f"Model: {args.model}")
     print(f"Base URL: {args.base_url}")
+    if args.rpm_limit > 0 or args.tpm_limit > 0:
+        print(
+            "Client-side rate limit: "
+            f"rpm={int(args.rpm_limit * args.rate_limit_safety)} "
+            f"tpm={int(args.tpm_limit * args.rate_limit_safety)} "
+            f"max_in_flight={max(args.max_in_flight, args.workers, 1)}"
+        )
 
     if args.dry_run:
         if records:
@@ -345,28 +444,54 @@ def main() -> None:
     if not args.api_key and "localhost" not in str(args.base_url) and "127.0.0.1" not in str(args.base_url):
         raise ValueError("No API key found. Set OPENAI_API_KEY/LLM_API_KEY, or use a local --base_url endpoint.")
 
+    rate_limiter = None
+    if args.rpm_limit > 0 or args.tpm_limit > 0:
+        rate_limiter = DualRateLimiter(
+            rpm_limit=max(args.rpm_limit, 1),
+            tpm_limit=max(args.tpm_limit, 1),
+            safety=max(args.rate_limit_safety, 0.01),
+            expected_output_tokens=max(args.expected_output_tokens, 0),
+        )
+
     with output_jsonl.open("a", encoding="utf-8") as handle:
         if args.workers <= 1:
             iterator = tqdm(records, total=len(records), desc="Generating LLM cache")
             for record in iterator:
-                payload = generate_one(record, prompt_template, args)
-                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+                payload = generate_one(record, prompt_template, args, rate_limiter=rate_limiter)
+                handle.write(json.dumps(sanitize_for_json(payload), ensure_ascii=False) + "\n")
                 handle.flush()
         else:
+            max_in_flight = max(args.max_in_flight, args.workers, 1)
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
-                future_to_id = {
-                    executor.submit(generate_one, record, prompt_template, args): int(record["review_node_id"])
-                    for record in records
-                }
-                iterator = tqdm(
-                    concurrent.futures.as_completed(future_to_id),
-                    total=len(future_to_id),
-                    desc="Generating LLM cache",
-                )
-                for future in iterator:
-                    payload = future.result()
-                    handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-                    handle.flush()
+                pending: dict[concurrent.futures.Future[dict[str, Any]], int] = {}
+                record_iter = iter(records)
+
+                def submit_next() -> bool:
+                    try:
+                        record = next(record_iter)
+                    except StopIteration:
+                        return False
+                    future = executor.submit(generate_one, record, prompt_template, args, rate_limiter)
+                    pending[future] = int(record["review_node_id"])
+                    return True
+
+                for _ in range(min(max_in_flight, len(records))):
+                    if not submit_next():
+                        break
+
+                iterator = tqdm(total=len(records), desc="Generating LLM cache")
+                while pending:
+                    done, _ = concurrent.futures.wait(
+                        set(pending.keys()),
+                        return_when=concurrent.futures.FIRST_COMPLETED,
+                    )
+                    for future in done:
+                        payload = future.result()
+                        handle.write(json.dumps(sanitize_for_json(payload), ensure_ascii=False) + "\n")
+                        handle.flush()
+                        pending.pop(future, None)
+                        iterator.update(1)
+                        submit_next()
 
     print("LLM cache generation finished.")
 

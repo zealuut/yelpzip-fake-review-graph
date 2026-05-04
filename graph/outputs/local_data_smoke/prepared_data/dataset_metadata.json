@@ -1,0 +1,68 @@
+{
+  "source_meta": {
+    "source_mode": "auto",
+    "resolved_path": "C:\\baidunetdiskdownload\\副本\\graph data\\dataset\\yelpzip.csv",
+    "resolved_variant": "dataset_yelpzip_csv"
+  },
+  "review_count": 402,
+  "user_count": 80,
+  "product_count": 310,
+  "fake_review_count": 156,
+  "fake_user_count": 40,
+  "split_sizes": {
+    "train": 55,
+    "test": 13,
+    "val": 12
+  },
+  "preprocessing": {
+    "min_user_reviews": 3,
+    "min_product_reviews": 3,
+    "inactive_prune_iterations_before_conflict": 3,
+    "inactive_prune_iterations_after_conflict": 3,
+    "initial_review_count": 608458,
+    "initial_user_count": 260239,
+    "initial_product_count": 5044,
+    "conflicting_user_count": 1254,
+    "conflicting_user_ids_sample": [
+      "100277",
+      "10028",
+      "100289",
+      "10036",
+      "100405",
+      "100517",
+      "100682",
+      "100783",
+      "100788",
+      "100931",
+      "101010",
+      "101121",
+      "101154",
+      "10121",
+      "10126",
+      "101373",
+      "101436",
+      "101438",
+      "101582",
+      "101731"
+    ],
+    "final_review_count": 348243,
+    "final_user_count": 48558,
+    "final_product_count": 3933,
+    "removed_review_count": 260215,
+    "removed_user_count": 211681,
+    "removed_product_count": 1111,
+    "min_reviews_per_user_after_filter": 3,
+    "min_reviews_per_product_after_filter": 3,
+    "smoke_user_sample_size": 80
+  },
+  "blocked_label_columns": [
+    "fake_ratio",
+    "fake_review_count",
+    "is_fake",
+    "is_fake_user",
+    "is_real",
+    "label",
+    "review_label",
+    "user_label"
+  ]
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,32 @@ def _day_gap_stats(review_dates: pd.Series) -> tuple[float, float, float]:
         return 0.0, 0.0, max(tenure_days, 0.0)
     gaps = valid_dates.diff().dropna().dt.total_seconds().to_numpy(dtype=np.float64) / 86400.0
     return float(np.mean(gaps)), float(np.std(gaps)), max(tenure_days, 0.0)
+
+
+def _simple_sentence_split(text: str) -> list[str]:
+    parts = [part.strip() for part in re.split(r"[.!?]+", text or "") if part.strip()]
+    return parts or [str(text or "").strip()]
+
+
+def _simple_word_tokens(text: str) -> list[str]:
+    return re.findall(r"[A-Za-z']+", str(text or "").lower())
+
+
+_FIRST_PERSON_PRONOUNS = {
+    "i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves",
+}
+_SECOND_PERSON_PRONOUNS = {"you", "your", "yours", "yourself", "yourselves"}
+_THIRD_PERSON_PRONOUNS = {"he", "she", "it", "they", "them", "his", "her", "their", "theirs", "him", "hers"}
+_AFFECTIVE_WORDS = {
+    "love", "hate", "amazing", "awful", "terrible", "wonderful", "horrible", "great", "bad", "good", "best", "worst",
+    "delicious", "disgusting", "sad", "happy", "angry", "friendly", "rude", "excellent", "poor",
+}
+_COGNITIVE_WORDS = {
+    "think", "know", "believe", "consider", "understand", "realize", "remember", "seem", "guess", "assume",
+}
+_PERCEPTUAL_WORDS = {
+    "see", "hear", "feel", "taste", "smell", "look", "watch", "notice", "sound", "touch",
+}
 
 
 def _review_day_number(value: Any) -> float:
@@ -273,6 +300,41 @@ def build_review_and_user_artifacts(
         product_start_dates = original_rows["product_id"].map(product_first_date)
         review_time_lags = (review_dates - pd.to_datetime(product_start_dates, errors="coerce")).dt.total_seconds() / 86400.0
         review_time_lags = review_time_lags.replace([np.inf, -np.inf], np.nan).dropna()
+        tokenized_reviews = [(_simple_sentence_split(text), _simple_word_tokens(text)) for text in original_rows["review_text"]]
+        sentence_lengths = [len(_simple_word_tokens(sentence)) for sentences, _ in tokenized_reviews for sentence in sentences if sentence]
+        word_tokens = [token for _, tokens in tokenized_reviews for token in tokens]
+        unique_words = len(set(word_tokens))
+        total_words = max(len(word_tokens), 1)
+        avg_sentence_length = float(np.mean(sentence_lengths) if sentence_lengths else 0.0)
+        lexical_diversity = float(unique_words / total_words)
+        pronoun_count = float(
+            sum(
+                1
+                for token in word_tokens
+                if token in _FIRST_PERSON_PRONOUNS | _SECOND_PERSON_PRONOUNS | _THIRD_PERSON_PRONOUNS
+            )
+        )
+        self_reference_diversity = float(
+            (sum(1 for token in word_tokens if token in _FIRST_PERSON_PRONOUNS) / max(total_words, 1))
+        )
+        affective_tokens = [token for token in word_tokens if token in _AFFECTIVE_WORDS]
+        cognitive_tokens = [token for token in word_tokens if token in _COGNITIVE_WORDS]
+        perceptual_tokens = [token for token in word_tokens if token in _PERCEPTUAL_WORDS]
+        affective_diversity = float(len(set(affective_tokens)) / max(len(affective_tokens), 1))
+        cognitive_diversity = float(len(set(cognitive_tokens)) / max(len(cognitive_tokens), 1))
+        perceptual_diversity = float(len(set(perceptual_tokens)) / max(len(perceptual_tokens), 1))
+        review_texts = original_rows["review_text"].tolist()
+        if len(review_texts) > 1:
+            reference = review_texts[0]
+            ref_tokens = set(_simple_word_tokens(reference))
+            similarities = []
+            for review_text in review_texts[1:]:
+                tokens = set(_simple_word_tokens(review_text))
+                union = len(tokens | ref_tokens)
+                similarities.append(len(tokens & ref_tokens) / union if union > 0 else 0.0)
+            text_similarity = float(np.mean(similarities) if similarities else 0.0)
+        else:
+            text_similarity = 0.0
 
         user_rows.append(
             {
@@ -297,6 +359,14 @@ def build_review_and_user_artifacts(
                 "avg_review_time_lag_days": float(review_time_lags.mean() if not review_time_lags.empty else 0.0),
                 "std_review_time_lag_days": float(review_time_lags.std(ddof=0) if len(review_time_lags) > 1 else 0.0),
                 "avg_review_length": float(np.mean([len(text.split()) for text in original_rows["review_text"]])),
+                "avg_sentence_length": avg_sentence_length,
+                "lexical_diversity": lexical_diversity,
+                "text_similarity": text_similarity,
+                "pronoun_count": pronoun_count,
+                "self_reference_diversity": self_reference_diversity,
+                "affective_diversity": affective_diversity,
+                "cognitive_diversity": cognitive_diversity,
+                "perceptual_diversity": perceptual_diversity,
                 "product_set": sorted(set(original_rows["product_id"].astype(str))),
                 "time_bucket_set": sorted(set(user_reviews["time_bucket"].astype(str))),
             }
@@ -1061,9 +1131,152 @@ def build_self_feature_matrix(user_df: pd.DataFrame, user_abnormal_vectors: np.n
         "AD",
         "ATR",
         "behavior_anomaly_score",
+        "avg_sentence_length",
+        "lexical_diversity",
+        "text_similarity",
+        "pronoun_count",
+        "self_reference_diversity",
+        "affective_diversity",
+        "cognitive_diversity",
+        "perceptual_diversity",
     ]
     dense_features = user_df.reindex(columns=feature_columns, fill_value=0.0).fillna(0.0).to_numpy(dtype=np.float32)
     return np.concatenate([dense_features, user_abnormal_vectors.astype(np.float32)], axis=1)
+
+
+def build_user_abnormal_score_vector(
+    user_df: pd.DataFrame,
+    review_scores_df: pd.DataFrame | None,
+    source: str = "auto",
+    aggregate: str = "mean",
+    top_k: int = 3,
+) -> np.ndarray:
+    source = str(source or "auto").lower()
+    aggregate = str(aggregate or "mean").lower()
+    ordered_user_ids = user_df["user_id"].astype(str).tolist()
+
+    if source in {"behavior", "behavior_anomaly_score", "user_abnormal_score"}:
+        return (
+            user_df.reindex(columns=["behavior_anomaly_score"], fill_value=0.0)
+            .fillna(0.0)
+            .to_numpy(dtype=np.float32)
+            .reshape(-1)
+        )
+
+    if review_scores_df is None or review_scores_df.empty:
+        return (
+            user_df.reindex(columns=["behavior_anomaly_score"], fill_value=0.0)
+            .fillna(0.0)
+            .to_numpy(dtype=np.float32)
+            .reshape(-1)
+        )
+
+    review_scores_df = review_scores_df.copy()
+    review_scores_df["user_id"] = review_scores_df["user_id"].astype(str)
+    has_col = review_scores_df.columns
+
+    if source == "auto":
+        if "evidence_score" in has_col:
+            source = "logic_ae"
+        elif "p_fake_review" in has_col:
+            source = "review_fake_score"
+        else:
+            source = "behavior"
+
+    if source == "review_fake_score":
+        score_col = "p_fake_review"
+    elif source == "logic_ae":
+        score_col = "corrected_evidence_score" if "corrected_evidence_score" in has_col else "evidence_score"
+    elif source == "llm_mask":
+        score_col = "num_abnormal_patterns"
+    elif source in {"evidence_score", "corrected_evidence_score"} and source in has_col:
+        score_col = source
+    else:
+        score_col = "p_fake_review" if "p_fake_review" in has_col else "evidence_score"
+
+    if score_col not in has_col:
+        return (
+            user_df.reindex(columns=["behavior_anomaly_score"], fill_value=0.0)
+            .fillna(0.0)
+            .to_numpy(dtype=np.float32)
+            .reshape(-1)
+        )
+
+    def _aggregate_group(values: pd.Series) -> float:
+        numeric = pd.to_numeric(values, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna().to_numpy(dtype=np.float32)
+        if numeric.size == 0:
+            return 0.0
+        if aggregate == "max":
+            return float(np.max(numeric))
+        if aggregate in {"topk_mean", "top_k_mean"}:
+            k = max(int(top_k), 1)
+            top_values = np.sort(numeric)[-k:]
+            return float(np.mean(top_values))
+        return float(np.mean(numeric))
+
+    user_scores = review_scores_df.groupby("user_id")[score_col].apply(_aggregate_group).to_dict()
+    fallback = user_df.reindex(columns=["behavior_anomaly_score"], fill_value=0.0).fillna(0.0)["behavior_anomaly_score"].astype(float)
+    score_vector = np.asarray([float(user_scores.get(user_id, fallback.iloc[idx])) for idx, user_id in enumerate(ordered_user_ids)], dtype=np.float32)
+    return np.clip(score_vector, 0.0, 1.0)
+
+
+def annotate_edges_with_pair_scores(
+    edge_frames: dict[str, pd.DataFrame],
+    user_df: pd.DataFrame,
+    user_abnormal_scores: np.ndarray | None,
+) -> dict[str, pd.DataFrame]:
+    if user_abnormal_scores is None:
+        return edge_frames
+
+    user_ids = user_df["user_id"].astype(str).tolist()
+    score_map = {user_id: float(np.clip(score, 0.0, 1.0)) for user_id, score in zip(user_ids, user_abnormal_scores)}
+    annotated_frames: dict[str, pd.DataFrame] = {}
+    for edge_name, frame in edge_frames.items():
+        if frame.empty:
+            annotated_frames[edge_name] = frame.copy()
+            continue
+        work = frame.copy()
+        src_scores = work["src_user_id"].astype(str).map(score_map).fillna(0.0).astype(float)
+        dst_scores = work["dst_user_id"].astype(str).map(score_map).fillna(0.0).astype(float)
+        work["pair_abnormal_score"] = ((src_scores + dst_scores) / 2.0).clip(0.0, 1.0)
+        work["abnormal_score_src"] = src_scores
+        work["abnormal_score_dst"] = dst_scores
+        annotated_frames[edge_name] = work
+    return annotated_frames
+
+
+def apply_abnormal_score_edge_transform(
+    edge_frames: dict[str, pd.DataFrame],
+    user_df: pd.DataFrame,
+    user_abnormal_scores: np.ndarray | None,
+    abnormal_edge_lambda: float = 1.0,
+    use_abnormal_gate: bool = False,
+) -> dict[str, pd.DataFrame]:
+    if user_abnormal_scores is None:
+        return edge_frames
+
+    abnormal_edge_lambda = float(max(abnormal_edge_lambda, 0.0))
+    annotated_frames = annotate_edges_with_pair_scores(edge_frames, user_df, user_abnormal_scores)
+    transformed_frames: dict[str, pd.DataFrame] = {}
+    for edge_name, frame in annotated_frames.items():
+        if frame.empty:
+            transformed_frames[edge_name] = frame.copy()
+            continue
+        work = frame.copy()
+        pair_score = work["pair_abnormal_score"].fillna(0.0).astype(float).clip(0.0, 1.0)
+        if use_abnormal_gate:
+            gate = 1.0 / (1.0 + np.exp(-(2.0 * pair_score - 1.0) * 4.0))
+            work["abnormal_gate"] = gate.astype(np.float32)
+            work["edge_weight"] = (
+                work["edge_weight"].astype(float).clip(lower=0.0) * (1.0 + abnormal_edge_lambda * pair_score) * gate
+            ).clip(0.0, 1.0)
+        else:
+            work["abnormal_gate"] = 1.0
+            work["edge_weight"] = (
+                work["edge_weight"].astype(float).clip(lower=0.0) * (1.0 + abnormal_edge_lambda * pair_score)
+            ).clip(0.0, 1.0)
+        transformed_frames[edge_name] = work
+    return transformed_frames
 
 
 def compute_edge_stats(
