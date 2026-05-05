@@ -24,6 +24,8 @@ EDGE_SET_DEFINITIONS = OrderedDict(
         ("Base_LogicAE_CB", ["UPU", "UTU", "USU", "LogicAE_CB"]),
         ("Base_TNSGuided_LogicAE_CB", ["UPU", "UTU", "USU", "TNSGuided_LogicAE_CB"]),
         ("Base_CB_TNSGuided_LogicAE_CB", ["UPU", "UTU", "USU", "CB", "TNSGuided_LogicAE_CB"]),
+        ("Base_TNSConfirmed_LogicAE_CB", ["UPU", "UTU", "USU", "TNSConfirmed_LogicAE_CB"]),
+        ("Base_CB_TNSConfirmed_LogicAE_CB", ["UPU", "UTU", "USU", "CB", "TNSConfirmed_LogicAE_CB"]),
         ("Full", ["UPU", "UTU", "USU", "TextSim", "CB", "LogicAE_CB"]),
     ]
 )
@@ -74,6 +76,7 @@ EDGE_FEATURE_CANDIDATES = [
     "abnormal_gate",
     "temporal_score",
     "interaction_score",
+    "logic_rank",
     "shared_product_count",
     "shared_time_count",
     "shared_user_count",
@@ -896,6 +899,7 @@ def run_relation_aggregation_experiments(
     selected_edge_set: str | None = None,
     relation_topk: int | None = None,
     use_node_gat: bool = False,
+    abnormal_weight_relations: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -925,7 +929,12 @@ def run_relation_aggregation_experiments(
     user_abnormal_scores = None
     if review_scores_df is not None:
         try:
-            from .graph_pipeline import build_user_abnormal_score_vector, annotate_edges_with_pair_scores, apply_abnormal_score_edge_transform
+            from .graph_pipeline import (
+                apply_abnormal_score_edge_transform,
+                annotate_edges_with_pair_scores,
+                build_user_abnormal_score_vector,
+                write_abnormal_weight_debug_metrics,
+            )
 
             user_abnormal_scores = build_user_abnormal_score_vector(
                 user_df=user_df,
@@ -941,7 +950,9 @@ def run_relation_aggregation_experiments(
                     user_abnormal_scores=user_abnormal_scores,
                     abnormal_edge_eta=abnormal_edge_eta,
                     pair_mode=abnormal_pair_mode,
+                    target_relations=set(abnormal_weight_relations) if abnormal_weight_relations is not None else None,
                 )
+                write_abnormal_weight_debug_metrics(edge_frames=edge_frames, output_dir=output_dir)
             if use_abnormal_attention_bias or use_abnormal_gate or use_abnormal_value_gate:
                 edge_frames = annotate_edges_with_pair_scores(
                     edge_frames=edge_frames,

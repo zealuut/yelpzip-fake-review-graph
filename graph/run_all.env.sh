@@ -4,6 +4,12 @@ export PYTHON_BIN="python3"
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
+SECRETS_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run_all.secrets.env"
+if [[ -f "$SECRETS_ENV" ]]; then
+  # shellcheck disable=SC1090
+  source "$SECRETS_ENV"
+fi
+
 export HF_ENDPOINT="https://hf-mirror.com"
 export HF_HOME="/home/xyz/HuChao (2)/Bert-TextClassification/.hf_cache"
 export TRANSFORMERS_CACHE="/home/xyz/HuChao (2)/Bert-TextClassification/.hf_cache/transformers"

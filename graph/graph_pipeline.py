@@ -26,6 +26,7 @@ DEFAULT_GRAPH_SUPPORT_BETAS = {
     "CB": 0.20,
     "LogicAE_CB": 0.30,
     "TNSGuided_LogicAE_CB": 0.30,
+    "TNSConfirmed_LogicAE_CB": 0.30,
 }
 DEFAULT_LOGIC_THRESHOLD_MODE = "quantile"
 DEFAULT_LOGIC_THRESHOLD_QUANTILE = 0.60
@@ -1010,6 +1011,100 @@ def _build_tns_guided_logicae_edges(
     return pd.DataFrame(edge_rows, columns=EDGE_COLUMNS + extra_columns)
 
 
+def _rank_normalize_desc(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    if len(values) == 1:
+        return [1.0]
+    ordered = np.asarray(values, dtype=np.float32)
+    ranks = np.arange(len(ordered), dtype=np.float32)
+    normalized = 1.0 - (ranks / max(len(ordered) - 1, 1))
+    return normalized.astype(np.float32).tolist()
+
+
+def _build_tns_confirmed_logicae_edges(
+    logic_edges: pd.DataFrame,
+    review_features: pd.DataFrame | None,
+    phi_days: int,
+    logic_tns_topk: int,
+) -> pd.DataFrame:
+    extra_columns = [
+        "S_logic",
+        "temporal_score",
+        "interaction_score",
+        "same_product_near_time_count",
+        "same_product_same_day_count",
+        "same_product_within_phi_count",
+        "min_time_gap_days",
+        "mean_time_gap_days",
+        "burst_session_count",
+        "co_burst_group_size_mean",
+        "co_burst_group_size_max",
+        "tns_phi_days",
+        "logic_rank",
+    ]
+    if logic_edges is None or logic_edges.empty:
+        return _empty_edge_frame(extra_columns)
+
+    temporal_df = _build_temporal_event_features(review_features, phi_days=phi_days)
+    if temporal_df.empty:
+        return _empty_edge_frame(extra_columns)
+
+    temporal_lookup = {
+        tuple(sorted((str(row.src_user_id), str(row.dst_user_id)))): row._asdict()
+        for row in temporal_df.itertuples(index=False)
+    }
+    logic_topk = max(int(logic_tns_topk), 1)
+    grouped_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for row in logic_edges.itertuples(index=False):
+        src_user_id = str(row.src_user_id)
+        dst_user_id = str(row.dst_user_id)
+        key = tuple(sorted((src_user_id, dst_user_id)))
+        temporal = temporal_lookup.get(key)
+        if not temporal:
+            continue
+        temporal_score = _clip01(_safe_float(temporal.get("temporal_score", 0.0)))
+        if temporal_score <= 0.0:
+            continue
+        logic_score = _clip01(_safe_float(getattr(row, "S_logic", getattr(row, "edge_weight", 0.0))))
+        interaction_score = logic_score * temporal_score
+        if interaction_score <= 0.0:
+            continue
+        grouped_rows[src_user_id].append(
+            {
+                "src_user_id": src_user_id,
+                "dst_user_id": dst_user_id,
+                "edge_type": "TNSConfirmed_LogicAE_CB",
+                "edge_weight": interaction_score,
+                "S_logic": logic_score,
+                "temporal_score": temporal_score,
+                "interaction_score": interaction_score,
+                "same_product_near_time_count": int(temporal.get("same_product_near_time_count", 0)),
+                "same_product_same_day_count": int(temporal.get("same_product_same_day_count", 0)),
+                "same_product_within_phi_count": int(temporal.get("same_product_within_phi_count", 0)),
+                "min_time_gap_days": _safe_float(temporal.get("min_time_gap_days", phi_days + 1)),
+                "mean_time_gap_days": _safe_float(temporal.get("mean_time_gap_days", phi_days + 1)),
+                "burst_session_count": int(temporal.get("burst_session_count", 0)),
+                "co_burst_group_size_mean": _safe_float(temporal.get("co_burst_group_size_mean", 0.0)),
+                "co_burst_group_size_max": int(temporal.get("co_burst_group_size_max", 0)),
+                "tns_phi_days": int(phi_days),
+                "logic_rank": 0,
+            }
+        )
+
+    edge_rows: list[dict[str, Any]] = []
+    for rows in grouped_rows.values():
+        rows.sort(key=lambda item: item["interaction_score"], reverse=True)
+        kept = rows[:logic_topk]
+        normalized_weights = _rank_normalize_desc([row["interaction_score"] for row in kept])
+        for idx, row in enumerate(kept, start=1):
+            row["logic_rank"] = idx
+            row["edge_weight"] = float(normalized_weights[idx - 1])
+            edge_rows.append(row)
+    return pd.DataFrame(edge_rows, columns=EDGE_COLUMNS + extra_columns)
+
+
 def build_edge_frames(
     user_df: pd.DataFrame,
     user_text_vectors: np.ndarray,
@@ -1027,6 +1122,7 @@ def build_edge_frames(
     tns_logic_mode: str = "boost",
     tns_logic_lambda: float = 1.0,
     logic_tns_topk: int = 20,
+    use_tns_confirmed_logic: bool = False,
 ) -> dict[str, pd.DataFrame]:
     output_dir = Path(output_dir)
     edge_dir = output_dir / "edges"
@@ -1108,6 +1204,28 @@ def build_edge_frames(
             "tns_logic_lambda",
         ]
     )
+    tns_confirmed_logicae_edges = _build_tns_confirmed_logicae_edges(
+        logic_edges=logicae_cb_edges,
+        review_features=review_features,
+        phi_days=tns_phi_days,
+        logic_tns_topk=logic_tns_topk,
+    ) if use_tns_confirmed_logic else _empty_edge_frame(
+        [
+            "S_logic",
+            "temporal_score",
+            "interaction_score",
+            "same_product_near_time_count",
+            "same_product_same_day_count",
+            "same_product_within_phi_count",
+            "min_time_gap_days",
+            "mean_time_gap_days",
+            "burst_session_count",
+            "co_burst_group_size_mean",
+            "co_burst_group_size_max",
+            "tns_phi_days",
+            "logic_rank",
+        ]
+    )
 
     edge_frames = {
         "UPU": upu_edges,
@@ -1117,6 +1235,7 @@ def build_edge_frames(
         "CB": cb_edges,
         "LogicAE_CB": logicae_cb_edges,
         "TNSGuided_LogicAE_CB": tns_guided_logicae_edges,
+        "TNSConfirmed_LogicAE_CB": tns_confirmed_logicae_edges,
     }
     for edge_name, frame in edge_frames.items():
         frame.to_csv(edge_dir / f"{edge_name}_edges.csv", index=False)
@@ -1133,11 +1252,13 @@ def build_edge_frames(
         "logic_candidate_edges": int(len(logic_knn_edges)),
         "logicae_cb_edges_after_threshold": int(len(logicae_cb_edges)),
         "use_tns_guided_logic": bool(use_tns_guided_logic),
+        "use_tns_confirmed_logic": bool(use_tns_confirmed_logic),
         "tns_phi_days": int(tns_phi_days),
         "tns_logic_mode": str(tns_logic_mode),
         "tns_logic_lambda": float(tns_logic_lambda),
         "logic_tns_topk": int(logic_tns_topk),
         "tns_guided_logicae_edges": int(len(tns_guided_logicae_edges)),
+        "tns_confirmed_logicae_edges": int(len(tns_confirmed_logicae_edges)),
         "senior_undirected_pair_estimates": {
             "UPU": int(len(upu_edges) // 2),
             "UTU": int(len(utu_edges) // 2),
@@ -1483,6 +1604,7 @@ def apply_abnormal_score_edge_transform(
     user_abnormal_scores: np.ndarray | None,
     abnormal_edge_eta: float = 0.5,
     pair_mode: str = "both_high",
+    target_relations: set[str] | None = None,
 ) -> dict[str, pd.DataFrame]:
     if user_abnormal_scores is None:
         return edge_frames
@@ -1495,15 +1617,76 @@ def apply_abnormal_score_edge_transform(
             transformed_frames[edge_name] = frame.copy()
             continue
         work = frame.copy()
+        if target_relations is not None and edge_name not in target_relations:
+            transformed_frames[edge_name] = work
+            continue
         pair_score = work["pair_abnormal_score"].fillna(0.0).astype(float).clip(0.0, 1.0)
         scale = 1.0 + abnormal_edge_eta * (2.0 * pair_score - 1.0)
         scale = np.clip(scale, 1.0 - abnormal_edge_eta, 1.0 + abnormal_edge_eta)
+        work["edge_weight_before"] = work["edge_weight"].astype(float).clip(lower=0.0)
         work["abnormal_gate"] = scale.astype(np.float32)
-        work["edge_weight"] = (
-            work["edge_weight"].astype(float).clip(lower=0.0) * scale
-        ).clip(0.0, 1.0)
+        work["edge_weight"] = work["edge_weight_before"] * scale
+        work["edge_weight_after"] = work["edge_weight"].astype(np.float32)
         transformed_frames[edge_name] = work
     return transformed_frames
+
+
+def write_abnormal_weight_debug_metrics(
+    edge_frames: dict[str, pd.DataFrame],
+    output_dir: str | Path,
+) -> None:
+    output_dir = Path(output_dir)
+    metrics_dir = output_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    pair_rows: list[dict[str, Any]] = []
+    before_after_rows: list[dict[str, Any]] = []
+    cb_quantile_rows: list[dict[str, Any]] = []
+    quantiles = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+
+    for relation, frame in edge_frames.items():
+        if frame.empty:
+            continue
+        if "pair_abnormal_score" in frame.columns:
+            scores = pd.to_numeric(frame["pair_abnormal_score"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            pair_rows.append(
+                {
+                    "relation": relation,
+                    "num_edges": int(len(scores)),
+                    "mean_pair_score": float(np.mean(scores)) if len(scores) else 0.0,
+                    "std_pair_score": float(np.std(scores)) if len(scores) else 0.0,
+                    "min_pair_score": float(np.min(scores)) if len(scores) else 0.0,
+                    "max_pair_score": float(np.max(scores)) if len(scores) else 0.0,
+                    "positive_pair_score_ratio": float(np.mean(scores > 0.0)) if len(scores) else 0.0,
+                }
+            )
+        if {"edge_weight_before", "edge_weight_after"}.issubset(frame.columns):
+            before = pd.to_numeric(frame["edge_weight_before"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            after = pd.to_numeric(frame["edge_weight_after"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+            before_after_rows.append(
+                {
+                    "relation": relation,
+                    "num_edges": int(len(before)),
+                    "mean_before": float(np.mean(before)) if len(before) else 0.0,
+                    "mean_after": float(np.mean(after)) if len(after) else 0.0,
+                    "mean_delta": float(np.mean(after - before)) if len(after) else 0.0,
+                    "mean_scale": float(np.mean(after / np.clip(before, 1e-6, None))) if len(after) else 0.0,
+                }
+            )
+            if relation == "CB":
+                for q in quantiles:
+                    cb_quantile_rows.append(
+                        {
+                            "relation": relation,
+                            "quantile": q,
+                            "before": float(np.quantile(before, q)) if len(before) else 0.0,
+                            "after": float(np.quantile(after, q)) if len(after) else 0.0,
+                        }
+                    )
+
+    pd.DataFrame(pair_rows).to_csv(metrics_dir / "abnormal_pair_score_stats.csv", index=False)
+    pd.DataFrame(before_after_rows).to_csv(metrics_dir / "edge_weight_before_after_by_relation.csv", index=False)
+    pd.DataFrame(cb_quantile_rows).to_csv(metrics_dir / "cb_weight_before_after_quantiles.csv", index=False)
 
 
 def compute_edge_stats(

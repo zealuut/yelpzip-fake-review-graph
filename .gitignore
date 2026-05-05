@@ -27,10 +27,14 @@ graph/outputs/**/prepared_data/*
 graph/outputs/**/edges/*.csv
 !graph/outputs/**/metrics/model_results*.csv
 !graph/outputs/**/metrics/edge_stats.csv
+!graph/outputs/**/metrics/**/abnormal_pair_score_stats.csv
+!graph/outputs/**/metrics/**/edge_weight_before_after_by_relation.csv
+!graph/outputs/**/metrics/**/cb_weight_before_after_quantiles.csv
 !graph/outputs/**/edges/edge_build_config.json
 !graph/outputs/three_routes_summary_*.csv
 !graph/outputs/three_routes_summary_*.md
 graph/__pycache__/
+graph/run_all.secrets.env
 local_models/
 pretrain_model/
 graph data/
