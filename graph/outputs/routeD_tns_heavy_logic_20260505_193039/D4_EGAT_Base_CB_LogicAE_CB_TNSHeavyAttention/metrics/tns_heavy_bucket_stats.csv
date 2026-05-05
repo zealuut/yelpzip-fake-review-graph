@@ -1,0 +1,11 @@
+feature,bucket,count,same_label_ratio,fake_fake_ratio,fake_real_ratio,real_real_ratio
+tns_heavy_score,"(-0.001, 0.2]",105264,0.6135335917312662,0.2883986928104575,0.38646640826873385,0.32513489892080866
+tns_heavy_score,"(0.2, 0.4]",0,0.0,0.0,0.0,0.0
+tns_heavy_score,"(0.4, 0.6]",0,0.0,0.0,0.0,0.0
+tns_heavy_score,"(0.6, 0.8]",0,0.0,0.0,0.0,0.0
+tns_heavy_score,"(0.8, 1.0]",0,0.0,0.0,0.0,0.0
+mean_session_fake_prior_norm,"(-0.001, 0.2]",105264,0.6135335917312662,0.2883986928104575,0.38646640826873385,0.32513489892080866
+mean_session_fake_prior_norm,"(0.2, 0.4]",0,0.0,0.0,0.0,0.0
+mean_session_fake_prior_norm,"(0.4, 0.6]",0,0.0,0.0,0.0,0.0
+mean_session_fake_prior_norm,"(0.6, 0.8]",0,0.0,0.0,0.0,0.0
+mean_session_fake_prior_norm,"(0.8, 1.0]",0,0.0,0.0,0.0,0.0

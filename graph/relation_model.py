@@ -22,6 +22,9 @@ EDGE_SET_DEFINITIONS = OrderedDict(
         ("Base_TextSim", ["UPU", "UTU", "USU", "TextSim"]),
         ("Base_CB", ["UPU", "UTU", "USU", "CB"]),
         ("Base_LogicAE_CB", ["UPU", "UTU", "USU", "LogicAE_CB"]),
+        ("Base_CB_LogicAE_CB", ["UPU", "UTU", "USU", "CB", "LogicAE_CB"]),
+        ("Base_TNSSoftHeavy_LogicAE_CB", ["UPU", "UTU", "USU", "TNSSoftHeavy_LogicAE_CB"]),
+        ("Base_CB_TNSSoftHeavy_LogicAE_CB", ["UPU", "UTU", "USU", "CB", "TNSSoftHeavy_LogicAE_CB"]),
         ("Base_TNSGuided_LogicAE_CB", ["UPU", "UTU", "USU", "TNSGuided_LogicAE_CB"]),
         ("Base_CB_TNSGuided_LogicAE_CB", ["UPU", "UTU", "USU", "CB", "TNSGuided_LogicAE_CB"]),
         ("Base_TNSConfirmed_LogicAE_CB", ["UPU", "UTU", "USU", "TNSConfirmed_LogicAE_CB"]),
@@ -89,6 +92,19 @@ EDGE_FEATURE_CANDIDATES = [
     "S_text",
     "S_logic",
     "tau_logic",
+    "same_burst_session_count_norm",
+    "temporal_closeness_norm",
+    "mean_session_fake_prior_norm",
+    "mean_session_logic_consistency_norm",
+    "group_jaccard_overlap_max_norm",
+    "repeated_group_count_norm",
+    "tns_heavy_score",
+    "logic_score_x_same_burst_session_count_norm",
+    "logic_score_x_mean_session_fake_prior_norm",
+    "logic_score_x_mean_session_logic_consistency_norm",
+    "logic_score_x_group_jaccard_overlap_max_norm",
+    "logic_score_x_tns_heavy_score",
+    "logic_score_x_tns_heavy_score_x_mean_session_fake_prior_norm",
 ]
 
 
@@ -918,13 +934,17 @@ def run_relation_aggregation_experiments(
     val_mask = splits == "val"
     test_mask = splits == "test"
     required_relations = sorted({relation for relations in EDGE_SET_DEFINITIONS.values() for relation in relations})
-    relation_aggregates: dict[str, np.ndarray] = {}
-    relation_active_masks: dict[str, np.ndarray] = {}
-    for relation_name in required_relations:
-        relation_edges = edge_frames.get(relation_name, pd.DataFrame())
-        aggregated = aggregate_relation_features(self_features, relation_edges, user_index)
-        relation_aggregates[relation_name] = aggregated
-        relation_active_masks[relation_name] = np.linalg.norm(aggregated, axis=1) > 0
+    def _compute_relation_views(frames: dict[str, pd.DataFrame]) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+        aggregates: dict[str, np.ndarray] = {}
+        active_masks_local: dict[str, np.ndarray] = {}
+        for relation_name in required_relations:
+            relation_edges = frames.get(relation_name, pd.DataFrame())
+            aggregated = aggregate_relation_features(self_features, relation_edges, user_index)
+            aggregates[relation_name] = aggregated
+            active_masks_local[relation_name] = np.linalg.norm(aggregated, axis=1) > 0
+        return aggregates, active_masks_local
+
+    relation_aggregates, relation_active_masks = _compute_relation_views(edge_frames)
 
     user_abnormal_scores = None
     if review_scores_df is not None:
@@ -953,6 +973,7 @@ def run_relation_aggregation_experiments(
                     target_relations=set(abnormal_weight_relations) if abnormal_weight_relations is not None else None,
                 )
                 write_abnormal_weight_debug_metrics(edge_frames=edge_frames, output_dir=output_dir)
+                relation_aggregates, relation_active_masks = _compute_relation_views(edge_frames)
             if use_abnormal_attention_bias or use_abnormal_gate or use_abnormal_value_gate:
                 edge_frames = annotate_edges_with_pair_scores(
                     edge_frames=edge_frames,

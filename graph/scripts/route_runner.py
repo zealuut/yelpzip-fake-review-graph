@@ -9,7 +9,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from graph.graph_pipeline import build_edge_frames, build_self_feature_matrix, compute_edge_stats
+from graph.graph_pipeline import (
+    build_edge_frames,
+    build_self_feature_matrix,
+    compute_edge_stats,
+    write_tns_heavy_diagnostics,
+)
 from graph.relation_model import run_relation_aggregation_experiments
 
 
@@ -96,6 +101,47 @@ ROUTE_EXPERIMENTS = {
             "use_tns_confirmed_logic": True,
         },
     ],
+    "D_HEAVY": [
+        {
+            "name": "D0_EGAT_Base_LogicAE_CB",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+        },
+        {
+            "name": "D1_EGAT_Base_TNSSoftHeavy_LogicAE_CB",
+            "edge_set": "Base_TNSSoftHeavy_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+            "use_tns_soft_heavy_logic": True,
+        },
+        {
+            "name": "D2_EGAT_Base_CB_TNSSoftHeavy_LogicAE_CB",
+            "edge_set": "Base_CB_TNSSoftHeavy_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+            "use_tns_soft_heavy_logic": True,
+        },
+        {
+            "name": "D3_EGAT_Base_LogicAE_CB_TNSHeavyAttention",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+            "use_tns_heavy_attention": True,
+        },
+        {
+            "name": "D4_EGAT_Base_CB_LogicAE_CB_TNSHeavyAttention",
+            "edge_set": "Base_CB_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+            "use_tns_heavy_attention": True,
+        },
+    ],
 }
 
 
@@ -121,7 +167,7 @@ def _read_senior_notes() -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run route experiments from existing in-repo artifacts.")
-    parser.add_argument("--route", choices=["A", "B", "C", "D"], required=True)
+    parser.add_argument("--route", choices=["A", "B", "C", "D", "D_HEAVY"], required=True)
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
@@ -136,6 +182,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tns_logic_lambda", type=float, default=1.0)
     parser.add_argument("--logic_tns_topk", type=int, default=20)
     parser.add_argument("--use_tns_confirmed_logic", action="store_true", default=False)
+    parser.add_argument("--use_tns_heavy", action="store_true", default=False)
+    parser.add_argument("--use_tns_soft_heavy_logic", action="store_true", default=False)
+    parser.add_argument("--use_tns_heavy_attention", action="store_true", default=False)
+    parser.add_argument("--tns_heavy_lambda", type=float, default=0.3)
     return parser.parse_args()
 
 
@@ -186,6 +236,10 @@ def _build_route_edges(
     tns_logic_mode: str = "boost",
     tns_logic_lambda: float = 1.0,
     logic_tns_topk: int = 20,
+    use_tns_heavy: bool = False,
+    use_tns_soft_heavy_logic: bool = False,
+    use_tns_heavy_attention: bool = False,
+    tns_heavy_lambda: float = 0.3,
 ) -> dict[str, pd.DataFrame]:
     return build_edge_frames(
         user_df=base_artifacts["user_df"],
@@ -205,6 +259,10 @@ def _build_route_edges(
         tns_logic_lambda=tns_logic_lambda,
         logic_tns_topk=logic_tns_topk,
         use_tns_confirmed_logic=use_tns_confirmed_logic,
+        use_tns_heavy=bool(use_tns_heavy),
+        use_tns_soft_heavy_logic=bool(use_tns_soft_heavy_logic),
+        use_tns_heavy_attention=bool(use_tns_heavy_attention),
+        tns_heavy_lambda=tns_heavy_lambda,
     )
 
 
@@ -259,44 +317,103 @@ def run_route(args: argparse.Namespace) -> Path:
             tns_logic_mode=args.tns_logic_mode,
             tns_logic_lambda=args.tns_logic_lambda,
             logic_tns_topk=args.logic_tns_topk,
+            use_tns_heavy=bool(exp.get("use_tns_heavy", args.use_tns_heavy)),
+            use_tns_soft_heavy_logic=bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
+            use_tns_heavy_attention=bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
+            tns_heavy_lambda=float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
         )
         exp_edge_stats_df = compute_edge_stats(
             edge_frames=exp_edge_frames,
             user_df=exp_artifacts["user_df"],
             output_dir=exp_dir,
         )
+        tns_diag_summary = write_tns_heavy_diagnostics(
+            edge_frames=exp_edge_frames,
+            user_df=exp_artifacts["user_df"],
+            output_dir=exp_dir,
+            selected_edge_set=exp["edge_set"],
+            tns_phi_days=args.tns_phi_days,
+        ) if (
+            bool(exp.get("use_tns_heavy", args.use_tns_heavy))
+            or "TNSSoftHeavy" in str(exp["edge_set"])
+            or bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention))
+        ) else {"tns_heavy_edge_count": 0.0, "tns_heavy_has_evidence_ratio": 0.0}
         exp_self_features = self_features if exp_base_dir == base_dir else build_self_feature_matrix(
             exp_artifacts["user_df"],
             exp_artifacts["user_abnormal_vectors"],
         )
 
-        result_df = run_relation_aggregation_experiments(
-            user_df=exp_artifacts["user_df"],
-            self_features=exp_self_features,
-            edge_frames=exp_edge_frames,
-            output_dir=metrics_dir,
-            review_encoder_name="llm_masked_logic",
-            model_kind=exp["relation_model"],
-            seed=args.seed,
-            backbone=exp["backbone"],
-            relation_model=exp["relation_model"],
-            use_abnormal_edge_weight=bool(exp.get("use_abnormal_edge_weight", False)),
-            use_abnormal_gate=bool(exp.get("use_abnormal_gate", False)),
-            use_abnormal_value_gate=bool(exp.get("use_abnormal_value_gate", False)),
-            use_abnormal_attention_bias=bool(exp.get("use_abnormal_attention_bias", False)),
-            abnormal_score_source=args.abnormal_score_source,
-            abnormal_edge_lambda=args.abnormal_edge_lambda,
-            abnormal_edge_eta=float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
-            abnormal_gate_eta=float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
-            abnormal_pair_mode=str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
-            abnormal_gate_learnable=bool(exp.get("abnormal_gate_learnable", args.abnormal_gate_learnable)),
-            abnormal_attention_gamma=args.abnormal_attention_gamma,
-            review_scores_df=exp_artifacts["review_scores_df"],
-            selected_edge_set=exp["edge_set"],
-            relation_topk=exp.get("relation_topk"),
-            use_node_gat=bool(exp.get("use_node_gat", False)),
-            abnormal_weight_relations=exp.get("abnormal_weight_relations"),
-        )
+        invalid_coverage = False
+        invalid_notes = ""
+        if "TNSSoftHeavy" in str(exp["edge_set"]):
+            soft_stats = exp_edge_stats_df[exp_edge_stats_df["edge_type"] == "TNSSoftHeavy_LogicAE_CB"]
+            if not soft_stats.empty:
+                soft_edge_count = int(soft_stats.iloc[0]["num_edges"])
+                if soft_edge_count < 50000:
+                    invalid_coverage = True
+                    invalid_notes = f"invalid coverage: TNSSoftHeavy_LogicAE_CB edge_count={soft_edge_count} < 50000"
+
+        if invalid_coverage:
+            result_df = pd.DataFrame(
+                [
+                    {
+                        "review_encoder": "llm_masked_logic",
+                        "model_name": "skipped_invalid_coverage",
+                        "edge_set": exp["edge_set"],
+                        "backbone": exp["backbone"],
+                        "relation_model": exp["relation_model"],
+                        "use_abnormal_edge_weight": bool(exp.get("use_abnormal_edge_weight", False)),
+                        "use_abnormal_gate": bool(exp.get("use_abnormal_gate", False)),
+                        "use_abnormal_value_gate": bool(exp.get("use_abnormal_value_gate", False)),
+                        "use_abnormal_attention_bias": bool(exp.get("use_abnormal_attention_bias", False)),
+                        "abnormal_score_source": args.abnormal_score_source,
+                        "threshold": None,
+                        "val_auc": None,
+                        "val_ap": None,
+                        "auc": None,
+                        "ap": None,
+                        "recall": None,
+                        "precision": None,
+                        "f1": None,
+                        "accuracy": None,
+                        "num_train_users": int((exp_artifacts["user_df"]["split"] == "train").sum()),
+                        "num_val_users": int((exp_artifacts["user_df"]["split"] == "val").sum()),
+                        "num_test_users": int((exp_artifacts["user_df"]["split"] == "test").sum()),
+                        "num_fake_train": int(exp_artifacts["user_df"].loc[exp_artifacts["user_df"]["split"] == "train", "user_label"].sum()),
+                        "num_fake_val": int(exp_artifacts["user_df"].loc[exp_artifacts["user_df"]["split"] == "val", "user_label"].sum()),
+                        "num_fake_test": int(exp_artifacts["user_df"].loc[exp_artifacts["user_df"]["split"] == "test", "user_label"].sum()),
+                    }
+                ]
+            )
+            result_df.to_csv(metrics_dir / "model_results.csv", index=False)
+        else:
+            result_df = run_relation_aggregation_experiments(
+                user_df=exp_artifacts["user_df"],
+                self_features=exp_self_features,
+                edge_frames=exp_edge_frames,
+                output_dir=metrics_dir,
+                review_encoder_name="llm_masked_logic",
+                model_kind=exp["relation_model"],
+                seed=args.seed,
+                backbone=exp["backbone"],
+                relation_model=exp["relation_model"],
+                use_abnormal_edge_weight=bool(exp.get("use_abnormal_edge_weight", False)),
+                use_abnormal_gate=bool(exp.get("use_abnormal_gate", False)),
+                use_abnormal_value_gate=bool(exp.get("use_abnormal_value_gate", False)),
+                use_abnormal_attention_bias=bool(exp.get("use_abnormal_attention_bias", False)),
+                abnormal_score_source=args.abnormal_score_source,
+                abnormal_edge_lambda=args.abnormal_edge_lambda,
+                abnormal_edge_eta=float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
+                abnormal_gate_eta=float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
+                abnormal_pair_mode=str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
+                abnormal_gate_learnable=bool(exp.get("abnormal_gate_learnable", args.abnormal_gate_learnable)),
+                abnormal_attention_gamma=args.abnormal_attention_gamma,
+                review_scores_df=exp_artifacts["review_scores_df"],
+                selected_edge_set=exp["edge_set"],
+                relation_topk=exp.get("relation_topk"),
+                use_node_gat=bool(exp.get("use_node_gat", False)),
+                abnormal_weight_relations=exp.get("abnormal_weight_relations"),
+            )
 
         graph_rows = result_df[result_df["edge_set"] == exp["edge_set"]].copy()
         best_row = graph_rows.sort_values("auc", ascending=False).iloc[0].to_dict() if not graph_rows.empty else {}
@@ -323,12 +440,20 @@ def run_route(args: argparse.Namespace) -> Path:
             "abnormal_score_source": args.abnormal_score_source,
             "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
             "use_tns_confirmed_logic": bool(exp.get("use_tns_confirmed_logic", False)),
+            "use_tns_heavy": bool(exp.get("use_tns_heavy", args.use_tns_heavy)),
+            "use_tns_soft_heavy_logic": bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
+            "use_tns_heavy_attention": bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
             "tns_phi_days": int(args.tns_phi_days),
             "tns_logic_mode": str(args.tns_logic_mode),
             "tns_logic_lambda": float(args.tns_logic_lambda),
+            "tns_heavy_lambda": float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
             "logic_tns_topk": int(args.logic_tns_topk),
             "use_node_gat": bool(exp.get("use_node_gat", False)),
             "seed": int(args.seed),
+            "tns_heavy_edge_count": float(tns_diag_summary.get("tns_heavy_edge_count", 0.0)),
+            "tns_heavy_has_evidence_ratio": float(tns_diag_summary.get("tns_heavy_has_evidence_ratio", 0.0)),
+            "invalid_coverage": bool(invalid_coverage),
+            "notes": invalid_notes,
         }
         if args.route == "B":
             exp_config["senior_exact_notes"] = senior_notes
@@ -346,13 +471,31 @@ def run_route(args: argparse.Namespace) -> Path:
             ),
             encoding="utf-8",
         )
-        train_lines.append(f"{exp_name}: auc={best_row.get('auc')} ap={best_row.get('ap')} f1={best_row.get('f1')}")
+        exp_train_lines = [
+            f"experiment={exp_name}",
+            f"edge_set={exp['edge_set']}",
+            f"backbone={exp['backbone']}",
+            f"relation_model={exp['relation_model']}",
+            f"use_tns_heavy={exp_config['use_tns_heavy']}",
+            f"use_tns_soft_heavy_logic={exp_config['use_tns_soft_heavy_logic']}",
+            f"use_tns_heavy_attention={exp_config['use_tns_heavy_attention']}",
+            f"tns_heavy_edge_count={exp_config['tns_heavy_edge_count']}",
+            f"tns_heavy_has_evidence_ratio={exp_config['tns_heavy_has_evidence_ratio']}",
+            f"invalid_coverage={invalid_coverage}",
+            f"auc={best_row.get('auc')}",
+            f"ap={best_row.get('ap')}",
+            f"f1={best_row.get('f1')}",
+        ]
+        (exp_dir / "train.log").write_text("\n".join(exp_train_lines) + "\n", encoding="utf-8")
+        train_lines.append(f"{exp_name}: auc={best_row.get('auc')} ap={best_row.get('ap')} f1={best_row.get('f1')} notes={invalid_notes}")
         route_rows.append(
             {
                 "route": args.route,
+                "experiment_name": exp_name,
                 "output_dir": str(exp_dir),
                 "model_name": best_row.get("model_name"),
                 "graph_mode": exp_graph_mode,
+                "top_k": top_k,
                 "edge_set": exp["edge_set"],
                 "backbone": exp["backbone"],
                 "relation_model": exp["relation_model"],
@@ -367,11 +510,17 @@ def run_route(args: argparse.Namespace) -> Path:
                 "abnormal_gate_eta": float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
                 "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
                 "use_tns_confirmed_logic": bool(exp.get("use_tns_confirmed_logic", False)),
+                "use_tns_heavy": bool(exp.get("use_tns_heavy", args.use_tns_heavy)),
+                "use_tns_soft_heavy_logic": bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
+                "use_tns_heavy_attention": bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
                 "tns_phi_days": int(args.tns_phi_days),
                 "tns_logic_mode": str(args.tns_logic_mode),
                 "tns_logic_lambda": float(args.tns_logic_lambda),
+                "tns_heavy_lambda": float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
                 "logic_tns_topk": int(args.logic_tns_topk),
                 "use_node_gat": bool(exp.get("use_node_gat", False)),
+                "tns_heavy_edge_count": float(tns_diag_summary.get("tns_heavy_edge_count", 0.0)),
+                "tns_heavy_has_evidence_ratio": float(tns_diag_summary.get("tns_heavy_has_evidence_ratio", 0.0)),
                 "AUC": best_row.get("auc"),
                 "AP": best_row.get("ap"),
                 "F1": best_row.get("f1"),
@@ -379,7 +528,7 @@ def run_route(args: argparse.Namespace) -> Path:
                 "Precision": best_row.get("precision"),
                 "best_epoch": best_row.get("best_epoch"),
                 "seed": int(args.seed),
-                "notes": senior_notes["notes"] if args.route == "B" else "",
+                "notes": invalid_notes or (senior_notes["notes"] if args.route == "B" else ""),
             }
         )
 
@@ -404,8 +553,12 @@ def run_route(args: argparse.Namespace) -> Path:
         "tns_phi_days": int(args.tns_phi_days),
         "tns_logic_mode": str(args.tns_logic_mode),
         "tns_logic_lambda": float(args.tns_logic_lambda),
+        "tns_heavy_lambda": float(args.tns_heavy_lambda),
         "logic_tns_topk": int(args.logic_tns_topk),
         "use_tns_confirmed_logic": bool(args.use_tns_confirmed_logic),
+        "use_tns_heavy": bool(args.use_tns_heavy),
+        "use_tns_soft_heavy_logic": bool(args.use_tns_soft_heavy_logic),
+        "use_tns_heavy_attention": bool(args.use_tns_heavy_attention),
     }
     route_best = summary_df.sort_values("AUC", ascending=False).iloc[0].to_dict() if not summary_df.empty else None
     (output_root / "config.json").write_text(json.dumps(route_config, indent=2, ensure_ascii=False), encoding="utf-8")

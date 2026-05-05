@@ -27,6 +27,8 @@ graph/outputs/**/prepared_data/*
 graph/outputs/**/edges/*.csv
 !graph/outputs/**/metrics/model_results*.csv
 !graph/outputs/**/metrics/edge_stats.csv
+!graph/outputs/**/metrics/tns_heavy_diagnostics.csv
+!graph/outputs/**/metrics/tns_heavy_bucket_stats.csv
 !graph/outputs/**/metrics/**/abnormal_pair_score_stats.csv
 !graph/outputs/**/metrics/**/edge_weight_before_after_by_relation.csv
 !graph/outputs/**/metrics/**/cb_weight_before_after_quantiles.csv
