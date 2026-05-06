@@ -182,6 +182,40 @@ ROUTE_EXPERIMENTS = {
             "tns_attention_relation": "LogicAE_CB",
         },
     ],
+    "E_NEXT": [
+        {
+            "name": "E1_EGAT_Base_LogicAE_CB_self_graph_gate",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_self_graph_gate": True,
+        },
+        {
+            "name": "E2_EGAT_Base_LogicAE_CB_self_gate_auxloss",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_self_graph_gate": True,
+            "use_self_aux_loss": True,
+            "self_aux_lambda": 0.3,
+        },
+        {
+            "name": "E3_EGAT_Base_LogicAE_CB_mutual_logic_feature",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_mutual_logic_features": True,
+            "use_mutual_logic_weight": True,
+            "mutual_logic_alpha": 0.2,
+        },
+        {
+            "name": "E4_EGAT_Base_LogicAE_CB_relation_sigmoid_gate",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_relation_sigmoid_gate": True,
+        },
+    ],
 }
 
 
@@ -207,7 +241,7 @@ def _read_senior_notes() -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run route experiments from existing in-repo artifacts.")
-    parser.add_argument("--route", choices=["A", "B", "C", "D", "D_HEAVY", "CD_NEXT"], required=True)
+    parser.add_argument("--route", choices=["A", "B", "C", "D", "D_HEAVY", "CD_NEXT", "E_NEXT"], required=True)
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
@@ -226,6 +260,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_tns_soft_heavy_logic", action="store_true", default=False)
     parser.add_argument("--use_tns_heavy_attention", action="store_true", default=False)
     parser.add_argument("--tns_heavy_lambda", type=float, default=0.3)
+    parser.add_argument("--self_aux_lambda", type=float, default=0.3)
     return parser.parse_args()
 
 
@@ -280,6 +315,9 @@ def _build_route_edges(
     use_tns_soft_heavy_logic: bool = False,
     use_tns_heavy_attention: bool = False,
     tns_heavy_lambda: float = 0.3,
+    use_mutual_logic_features: bool = False,
+    use_mutual_logic_weight: bool = False,
+    mutual_logic_alpha: float = 0.2,
 ) -> dict[str, pd.DataFrame]:
     return build_edge_frames(
         user_df=base_artifacts["user_df"],
@@ -303,6 +341,9 @@ def _build_route_edges(
         use_tns_soft_heavy_logic=bool(use_tns_soft_heavy_logic),
         use_tns_heavy_attention=bool(use_tns_heavy_attention),
         tns_heavy_lambda=tns_heavy_lambda,
+        use_mutual_logic_features=bool(use_mutual_logic_features),
+        use_mutual_logic_weight=bool(use_mutual_logic_weight),
+        mutual_logic_alpha=float(mutual_logic_alpha),
     )
 
 
@@ -361,6 +402,9 @@ def run_route(args: argparse.Namespace) -> Path:
             use_tns_soft_heavy_logic=bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
             use_tns_heavy_attention=bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
             tns_heavy_lambda=float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
+            use_mutual_logic_features=bool(exp.get("use_mutual_logic_features", False)),
+            use_mutual_logic_weight=bool(exp.get("use_mutual_logic_weight", False)),
+            mutual_logic_alpha=float(exp.get("mutual_logic_alpha", 0.2)),
         )
         exp_edge_stats_df = compute_edge_stats(
             edge_frames=exp_edge_frames,
@@ -454,6 +498,10 @@ def run_route(args: argparse.Namespace) -> Path:
                 use_node_gat=bool(exp.get("use_node_gat", False)),
                 abnormal_weight_relations=exp.get("abnormal_weight_relations"),
                 tns_attention_relations=exp.get("tns_attention_relations"),
+                use_self_graph_gate=bool(exp.get("use_self_graph_gate", False)),
+                use_relation_sigmoid_gate=bool(exp.get("use_relation_sigmoid_gate", False)),
+                use_self_aux_loss=bool(exp.get("use_self_aux_loss", False)),
+                self_aux_lambda=float(exp.get("self_aux_lambda", args.self_aux_lambda)),
             )
 
         graph_rows = result_df[result_df["edge_set"] == exp["edge_set"]].copy()
@@ -493,6 +541,13 @@ def run_route(args: argparse.Namespace) -> Path:
             "tns_heavy_lambda": float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
             "logic_tns_topk": int(args.logic_tns_topk),
             "use_node_gat": bool(exp.get("use_node_gat", False)),
+            "use_self_graph_gate": bool(exp.get("use_self_graph_gate", False)),
+            "use_relation_sigmoid_gate": bool(exp.get("use_relation_sigmoid_gate", False)),
+            "use_self_aux_loss": bool(exp.get("use_self_aux_loss", False)),
+            "self_aux_lambda": float(exp.get("self_aux_lambda", args.self_aux_lambda)),
+            "use_mutual_logic_features": bool(exp.get("use_mutual_logic_features", False)),
+            "use_mutual_logic_weight": bool(exp.get("use_mutual_logic_weight", False)),
+            "mutual_logic_alpha": float(exp.get("mutual_logic_alpha", 0.2)),
             "seed": int(args.seed),
             "tns_heavy_edge_count": float(tns_diag_summary.get("tns_heavy_edge_count", 0.0)),
             "tns_heavy_has_evidence_ratio": float(tns_diag_summary.get("tns_heavy_has_evidence_ratio", 0.0)),
@@ -566,6 +621,13 @@ def run_route(args: argparse.Namespace) -> Path:
                 "tns_heavy_lambda": float(exp.get("tns_heavy_lambda", args.tns_heavy_lambda)),
                 "logic_tns_topk": int(args.logic_tns_topk),
                 "use_node_gat": bool(exp.get("use_node_gat", False)),
+                "use_self_graph_gate": bool(exp.get("use_self_graph_gate", False)),
+                "use_relation_sigmoid_gate": bool(exp.get("use_relation_sigmoid_gate", False)),
+                "use_self_aux_loss": bool(exp.get("use_self_aux_loss", False)),
+                "self_aux_lambda": float(exp.get("self_aux_lambda", args.self_aux_lambda)),
+                "use_mutual_logic_features": bool(exp.get("use_mutual_logic_features", False)),
+                "use_mutual_logic_weight": bool(exp.get("use_mutual_logic_weight", False)),
+                "mutual_logic_alpha": float(exp.get("mutual_logic_alpha", 0.2)),
                 "tns_heavy_edge_count": float(tns_diag_summary.get("tns_heavy_edge_count", 0.0)),
                 "tns_heavy_has_evidence_ratio": float(tns_diag_summary.get("tns_heavy_has_evidence_ratio", 0.0)),
                 "AUC": best_row.get("auc"),

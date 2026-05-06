@@ -56,6 +56,66 @@ def _empty_edge_frame(extra_columns: list[str] | None = None) -> pd.DataFrame:
     return pd.DataFrame(columns=columns)
 
 
+def _add_mutual_logic_features(
+    logic_edges: pd.DataFrame,
+    *,
+    apply_weight: bool = False,
+    mutual_logic_alpha: float = 0.2,
+) -> pd.DataFrame:
+    extra_columns = ["logic_rank_percentile", "mutual_logic_flag", "mutual_logic_score"]
+    if logic_edges is None or logic_edges.empty:
+        return _empty_edge_frame(["S_logic", "logic_rank", *extra_columns])
+
+    work = logic_edges.copy()
+    work["src_user_id"] = work["src_user_id"].astype(str)
+    work["dst_user_id"] = work["dst_user_id"].astype(str)
+    work["edge_weight"] = pd.to_numeric(work.get("edge_weight", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+    if "S_logic" not in work.columns:
+        work["S_logic"] = work["edge_weight"].astype(np.float32)
+    else:
+        work["S_logic"] = pd.to_numeric(work["S_logic"], errors="coerce").fillna(0.0).astype(np.float32)
+
+    work = work.sort_values(
+        by=["src_user_id", "edge_weight", "dst_user_id"],
+        ascending=[True, False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    work["logic_rank"] = work.groupby("src_user_id").cumcount() + 1
+    group_sizes = work.groupby("src_user_id")["dst_user_id"].transform("count").astype(np.float32)
+    denom = np.clip(group_sizes.to_numpy(dtype=np.float32) - 1.0, a_min=1.0, a_max=None)
+    numer = work["logic_rank"].to_numpy(dtype=np.float32) - 1.0
+    work["logic_rank_percentile"] = np.where(
+        group_sizes.to_numpy(dtype=np.float32) <= 1.0,
+        1.0,
+        1.0 - numer / denom,
+    ).astype(np.float32)
+
+    directed_pairs = {
+        (str(row.src_user_id), str(row.dst_user_id))
+        for row in work[["src_user_id", "dst_user_id"]].itertuples(index=False)
+    }
+    work["mutual_logic_flag"] = np.asarray(
+        [
+            1.0 if (dst_user_id, src_user_id) in directed_pairs else 0.0
+            for src_user_id, dst_user_id in work[["src_user_id", "dst_user_id"]].itertuples(index=False)
+        ],
+        dtype=np.float32,
+    )
+    work["mutual_logic_score"] = (
+        work["mutual_logic_flag"].to_numpy(dtype=np.float32)
+        * work["S_logic"].to_numpy(dtype=np.float32)
+    ).astype(np.float32)
+
+    if apply_weight:
+        alpha = max(float(mutual_logic_alpha), 0.0)
+        work["edge_weight"] = (
+            work["edge_weight"].to_numpy(dtype=np.float32)
+            * (1.0 + alpha * work["mutual_logic_flag"].to_numpy(dtype=np.float32))
+        ).astype(np.float32)
+
+    return work
+
+
 def _normalize_vectors(vectors: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     norms = np.clip(norms, a_min=1e-8, a_max=None)
@@ -1743,6 +1803,9 @@ def build_edge_frames(
     use_tns_soft_heavy_logic: bool = False,
     use_tns_heavy_attention: bool = False,
     tns_heavy_lambda: float = 0.3,
+    use_mutual_logic_features: bool = False,
+    use_mutual_logic_weight: bool = False,
+    mutual_logic_alpha: float = 0.2,
 ) -> dict[str, pd.DataFrame]:
     output_dir = Path(output_dir)
     edge_dir = output_dir / "edges"
@@ -1799,6 +1862,12 @@ def build_edge_frames(
         min_vector_score=tau_logic,
         threshold_column="tau_logic",
     )
+    if use_mutual_logic_features or use_mutual_logic_weight:
+        logicae_cb_edges = _add_mutual_logic_features(
+            logicae_cb_edges,
+            apply_weight=bool(use_mutual_logic_weight),
+            mutual_logic_alpha=mutual_logic_alpha,
+        )
     tns_heavy_cache = _build_tns_heavy_feature_cache(
         logic_edges=logicae_cb_edges,
         review_features=review_features,
@@ -1904,6 +1973,9 @@ def build_edge_frames(
         "use_tns_heavy": bool(use_tns_heavy),
         "use_tns_soft_heavy_logic": bool(use_tns_soft_heavy_logic),
         "use_tns_heavy_attention": bool(use_tns_heavy_attention),
+        "use_mutual_logic_features": bool(use_mutual_logic_features),
+        "use_mutual_logic_weight": bool(use_mutual_logic_weight),
+        "mutual_logic_alpha": float(mutual_logic_alpha),
         "tns_phi_days": int(tns_phi_days),
         "tns_logic_mode": str(tns_logic_mode),
         "tns_logic_lambda": float(tns_logic_lambda),

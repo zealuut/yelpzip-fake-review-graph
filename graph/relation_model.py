@@ -107,6 +107,9 @@ EDGE_FEATURE_CANDIDATES = [
     "logic_score_x_group_jaccard_overlap_max_norm",
     "logic_score_x_tns_heavy_score",
     "logic_score_x_tns_heavy_score_x_mean_session_fake_prior_norm",
+    "logic_rank_percentile",
+    "mutual_logic_flag",
+    "mutual_logic_score",
 ]
 TNS_EDGE_FEATURE_COLUMNS = [
     "same_burst_session_count_norm",
@@ -255,7 +258,11 @@ def _build_edge_pack(
             tns_edge_features = tns_processed
         else:
             tns_edge_features = np.zeros((len(frame), 1), dtype=np.float32)
-        has_tns_evidence = pd.to_numeric(frame.get("has_tns_heavy_evidence", 0.0), errors="coerce").fillna(0.0).clip(0.0, 1.0).to_numpy(dtype=np.float32)
+        if "has_tns_heavy_evidence" in frame.columns:
+            has_tns_series = pd.to_numeric(frame["has_tns_heavy_evidence"], errors="coerce").fillna(0.0).clip(0.0, 1.0)
+        else:
+            has_tns_series = pd.Series(np.zeros((len(frame),), dtype=np.float32), index=frame.index, dtype=np.float32)
+        has_tns_evidence = has_tns_series.to_numpy(dtype=np.float32)
         if tns_edge_features.shape[0] != len(has_tns_evidence):
             has_tns_evidence = np.zeros((tns_edge_features.shape[0],), dtype=np.float32)
         tns_edge_features = tns_edge_features * has_tns_evidence.reshape(-1, 1)
@@ -649,6 +656,8 @@ class _RouteGraphClassifier(torch.nn.Module):
         gate_eta: float = 0.5,
         use_node_gat: bool = False,
         tns_attention_relations: Sequence[str] | None = None,
+        use_self_graph_gate: bool = False,
+        use_relation_sigmoid_gate: bool = False,
     ) -> None:
         super().__init__()
         self.relations = list(relations)
@@ -657,6 +666,8 @@ class _RouteGraphClassifier(torch.nn.Module):
         self.num_layers = max(1, int(num_layers))
         self.use_node_gat = bool(use_node_gat)
         self.tns_attention_relations = set(tns_attention_relations or [])
+        self.use_self_graph_gate = bool(use_self_graph_gate)
+        self.use_relation_sigmoid_gate = bool(use_relation_sigmoid_gate)
         classifier_input_dim = hidden_dim * 3 if self.use_node_gat else (hidden_dim * 3 if (senior_style and self.num_layers > 1) else hidden_dim * 2)
         self.input_proj = torch.nn.Linear(input_dim, hidden_dim)
         self.self_proj = torch.nn.Linear(input_dim, hidden_dim)
@@ -681,6 +692,13 @@ class _RouteGraphClassifier(torch.nn.Module):
             torch.nn.Dropout(dropout),
             torch.nn.Linear(hidden_dim, len(self.relations)),
         )
+        self.self_graph_gate = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim * 2 + 2, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(hidden_dim, hidden_dim),
+            torch.nn.Sigmoid(),
+        )
         self.fuse1 = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim * 2, hidden_dim),
             torch.nn.ReLU(),
@@ -700,6 +718,13 @@ class _RouteGraphClassifier(torch.nn.Module):
             torch.nn.Dropout(dropout),
             torch.nn.Linear(hidden_dim, 1),
         )
+        self.self_classifier = torch.nn.Sequential(
+            torch.nn.LayerNorm(hidden_dim),
+            torch.nn.Linear(hidden_dim, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(hidden_dim, 1),
+        )
 
     def forward(
         self,
@@ -713,37 +738,63 @@ class _RouteGraphClassifier(torch.nn.Module):
         self_repr = self.self_proj(node_features)
         core = self.input_proj(node_features)
         relation_outputs: list[Any] = []
+        relation_norms: list[Any] = []
         for relation_name in self.relations:
             pack = edge_packs.get(relation_name)
             if pack is None:
                 continue
             bias = None if abnormal_biases is None else abnormal_biases.get(relation_name)
             value_gate = None if abnormal_value_gates is None else abnormal_value_gates.get(relation_name)
-            relation_outputs.append(
-                self.relation_layers[relation_name](
+            relation_out = self.relation_layers[relation_name](
                     core,
                     pack,
                     torch=torch,
                     abnormal_bias=bias,
                     abnormal_value_gate=value_gate,
                 )
-            )
+            relation_outputs.append(relation_out)
+            relation_norms.append(torch.linalg.vector_norm(relation_out, dim=-1))
 
         if relation_outputs:
             relation_stack = torch.stack(relation_outputs, dim=1)
-            gate = torch.softmax(self.relation_gate(torch.cat([self_repr, core], dim=-1)), dim=-1)
+            relation_logits = self.relation_gate(torch.cat([self_repr, core], dim=-1))
+            if self.use_relation_sigmoid_gate:
+                gate = torch.sigmoid(relation_logits)
+            else:
+                gate = torch.softmax(relation_logits, dim=-1)
             relation_context = torch.sum(relation_stack * gate.unsqueeze(-1), dim=1)
+            relation_gate_summary = torch.mean(gate, dim=-1, keepdim=True)
         else:
             relation_context = torch.zeros_like(self_repr)
+            relation_gate_summary = torch.zeros((self_repr.shape[0], 1), dtype=self_repr.dtype, device=self_repr.device)
+
+        relation_degree = torch.zeros((self_repr.shape[0],), dtype=self_repr.dtype, device=self_repr.device)
+        for relation_name in self.relations:
+            pack = edge_packs.get(relation_name)
+            if pack is None or pack.src.size == 0:
+                continue
+            src = torch.as_tensor(pack.src, dtype=torch.long, device=self_repr.device)
+            ones = torch.ones((src.shape[0],), dtype=self_repr.dtype, device=self_repr.device)
+            relation_degree.index_add_(0, src, ones)
+        degree_feature = torch.log1p(relation_degree).unsqueeze(-1)
+
+        if self.use_self_graph_gate:
+            gate_input = torch.cat([self_repr, relation_context, degree_feature, relation_gate_summary], dim=-1)
+            self_gate = self.self_graph_gate(gate_input)
+            relation_context = self_gate * relation_context
 
         stage1 = self.fuse1(torch.cat([self_repr, relation_context], dim=-1))
         if self.use_node_gat and self.node_gat is not None and union_pack is not None:
             stage1_gat = self.node_gat(stage1, union_pack, torch=torch)
             fused = torch.cat([self_repr, stage1, stage1_gat], dim=-1)
-            return self.classifier(fused).squeeze(-1)
+            logits = self.classifier(fused).squeeze(-1)
+            self_logits = self.self_classifier(self_repr).squeeze(-1)
+            return logits, self_logits
         if not self.senior_style or self.num_layers == 1:
             fused = torch.cat([self_repr, stage1], dim=-1)
-            return self.classifier(fused).squeeze(-1)
+            logits = self.classifier(fused).squeeze(-1)
+            self_logits = self.self_classifier(self_repr).squeeze(-1)
+            return logits, self_logits
 
         relation_outputs_2: list[Any] = []
         for relation_name in self.relations:
@@ -763,13 +814,19 @@ class _RouteGraphClassifier(torch.nn.Module):
             )
         if relation_outputs_2:
             relation_stack_2 = torch.stack(relation_outputs_2, dim=1)
-            gate_2 = torch.softmax(self.relation_gate(torch.cat([self_repr, stage1], dim=-1)), dim=-1)
+            relation_logits_2 = self.relation_gate(torch.cat([self_repr, stage1], dim=-1))
+            if self.use_relation_sigmoid_gate:
+                gate_2 = torch.sigmoid(relation_logits_2)
+            else:
+                gate_2 = torch.softmax(relation_logits_2, dim=-1)
             relation_context_2 = torch.sum(relation_stack_2 * gate_2.unsqueeze(-1), dim=1)
         else:
             relation_context_2 = torch.zeros_like(self_repr)
         stage2 = self.fuse2(torch.cat([stage1, relation_context_2], dim=-1))
         fused = torch.cat([self_repr, stage1, stage2], dim=-1)
-        return self.classifier(fused).squeeze(-1)
+        logits = self.classifier(fused).squeeze(-1)
+        self_logits = self.self_classifier(self_repr).squeeze(-1)
+        return logits, self_logits
 
 
 def _fit_graph_backbone_model(
@@ -786,6 +843,10 @@ def _fit_graph_backbone_model(
     gate_eta: float = 0.5,
     use_node_gat: bool = False,
     tns_attention_relations: Sequence[str] | None = None,
+    use_self_graph_gate: bool = False,
+    use_relation_sigmoid_gate: bool = False,
+    use_self_aux_loss: bool = False,
+    self_aux_lambda: float = 0.3,
 ) -> tuple[Any, np.ndarray, np.ndarray]:
     torch, _, _ = _import_torch_modules()
     torch.manual_seed(seed)
@@ -822,6 +883,8 @@ def _fit_graph_backbone_model(
         gate_eta=gate_eta,
         use_node_gat=use_node_gat,
         tns_attention_relations=tns_attention_relations,
+        use_self_graph_gate=use_self_graph_gate,
+        use_relation_sigmoid_gate=use_relation_sigmoid_gate,
     ).to(device)
 
     feature_tensor = torch.as_tensor(base_input, dtype=torch.float32, device=device)
@@ -869,7 +932,7 @@ def _fit_graph_backbone_model(
         model.train()
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=amp_enabled):
-            logits = model(
+            logits, self_logits = model(
                 feature_tensor,
                 edge_packs,
                 torch=torch,
@@ -878,22 +941,26 @@ def _fit_graph_backbone_model(
                 union_pack=union_pack,
             )
             train_logits = logits[train_mask]
+            train_self_logits = self_logits[train_mask]
             train_labels = torch.as_tensor(labels[train_mask], dtype=torch.float32, device=device)
             loss = criterion(train_logits, train_labels)
+            if use_self_aux_loss:
+                loss = loss + float(self_aux_lambda) * criterion(train_self_logits, train_labels)
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
 
         with torch.no_grad():
             with torch.cuda.amp.autocast(enabled=amp_enabled):
-                val_logits = model(
+                val_logits, _ = model(
                     feature_tensor,
                     edge_packs,
                     torch=torch,
                     abnormal_biases=abnormal_biases,
                     abnormal_value_gates=abnormal_value_gates,
                     union_pack=union_pack,
-                )[val_mask]
+                )
+                val_logits = val_logits[val_mask]
             val_probs = torch.sigmoid(val_logits).detach().cpu().numpy()
         val_auc = _safe_binary_metrics(labels[val_mask], val_probs, threshold=0.5)["auc"]
         if val_auc > best_val_auc + 1e-5:
@@ -957,7 +1024,7 @@ def _predict_graph_backbone_probs(
                     edge_features=np.ones((len(union_df), 1), dtype=np.float32),
                     active_nodes=np.ones((node_features.shape[0],), dtype=bool),
                 )
-        logits = model(
+        logits, _ = model(
             features,
             edge_packs,
             torch=torch,
@@ -996,6 +1063,10 @@ def run_relation_aggregation_experiments(
     use_node_gat: bool = False,
     abnormal_weight_relations: Sequence[str] | None = None,
     tns_attention_relations: Sequence[str] | None = None,
+    use_self_graph_gate: bool = False,
+    use_relation_sigmoid_gate: bool = False,
+    use_self_aux_loss: bool = False,
+    self_aux_lambda: float = 0.3,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1191,6 +1262,10 @@ def run_relation_aggregation_experiments(
                 gate_eta=abnormal_gate_eta,
                 use_node_gat=use_node_gat,
                 tns_attention_relations=tns_attention_relations,
+                use_self_graph_gate=use_self_graph_gate,
+                use_relation_sigmoid_gate=use_relation_sigmoid_gate,
+                use_self_aux_loss=use_self_aux_loss,
+                self_aux_lambda=self_aux_lambda,
             )
             torch_runtime, _, _ = _import_torch_modules()
             device = next(model.parameters()).device
@@ -1270,6 +1345,10 @@ def run_relation_aggregation_experiments(
                 "use_abnormal_value_gate": bool(use_abnormal_value_gate),
                 "use_abnormal_attention_bias": bool(use_abnormal_attention_bias),
                 "abnormal_score_source": abnormal_score_source,
+                "use_self_graph_gate": bool(use_self_graph_gate),
+                "use_relation_sigmoid_gate": bool(use_relation_sigmoid_gate),
+                "use_self_aux_loss": bool(use_self_aux_loss),
+                "self_aux_lambda": float(self_aux_lambda),
                 "threshold": threshold,
                 "val_auc": val_metrics["auc"],
                 "val_ap": val_metrics["ap"],
