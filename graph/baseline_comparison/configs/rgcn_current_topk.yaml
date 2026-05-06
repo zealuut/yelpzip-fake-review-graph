@@ -1,0 +1,26 @@
+experiment_name: RGCN_CurrentTopK_Base_LogicAE_CB
+model: RGCN
+graph_protocol: current_topk
+edge_set: Base_LogicAE_CB
+relation_handling: typed_multi_relation_graph
+feature_source: user_scores_enriched.csv + user_abnormal_vectors.npy
+hidden_dim: 144
+num_layers: 1
+heads: UNKNOWN_FROM_D1
+num_bases: 4
+optimizer: AdamW
+lr: 0.001
+weight_decay: 0.0005
+dropout: 0.2
+epochs: 100
+patience: 16
+early_stopping_metric: val_auc
+loss_function: BCEWithLogitsLoss
+class_weight: balanced_pos_weight
+threshold_selection: validation_f1
+feature_normalization: standardize_like_D1_global
+blocked_label_columns: UNKNOWN_FROM_D1
+seed: 42
+notes: "Aligned to D1 current-topk protocol where recoverable; typed multi-relation graph with UPU/UTU/USU/LogicAE_CB retained."
+unknown_from_d1:
+  - blocked_label_columns
