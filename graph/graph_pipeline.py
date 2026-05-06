@@ -32,7 +32,9 @@ DEFAULT_GRAPH_SUPPORT_BETAS = {
 DEFAULT_LOGIC_THRESHOLD_MODE = "quantile"
 DEFAULT_LOGIC_THRESHOLD_QUANTILE = 0.60
 DEFAULT_LOGIC_THRESHOLD_VALUE = 0.30
+TNS_HEAVY_CACHE_VERSION = "v2_sparse_safe"
 TNS_HEAVY_EDGE_FEATURE_COLUMNS = [
+    "has_tns_heavy_evidence",
     "same_burst_session_count_norm",
     "temporal_closeness_norm",
     "mean_session_fake_prior_norm",
@@ -1067,7 +1069,7 @@ def _rank_normalize_desc(values: list[float]) -> list[float]:
 
 
 def _tns_heavy_cache_dir(phi_days: int) -> Path:
-    cache_dir = Path(__file__).resolve().parent / "outputs" / "cache" / f"tns_heavy_features_phi{int(phi_days)}"
+    cache_dir = Path(__file__).resolve().parent / "outputs" / "cache" / f"tns_heavy_features_phi{int(phi_days)}_{TNS_HEAVY_CACHE_VERSION}"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
@@ -1483,6 +1485,9 @@ def _merge_tns_heavy_features(
         lambda row: _undirected_pair_key(row["src_user_id"], row["dst_user_id"]),
         axis=1,
     )
+    stale_columns = [column for column in merge_columns if column != "pair_key" and column in work.columns]
+    if stale_columns:
+        work = work.drop(columns=stale_columns)
     work = work.merge(pair_lookup[merge_columns], on="pair_key", how="left")
     if "has_tns_heavy_evidence" not in work.columns:
         work["has_tns_heavy_evidence"] = 0

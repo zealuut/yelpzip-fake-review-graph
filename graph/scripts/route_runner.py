@@ -142,6 +142,46 @@ ROUTE_EXPERIMENTS = {
             "use_tns_heavy_attention": True,
         },
     ],
+    "CD_NEXT": [
+        {
+            "name": "C_opt_Base_CB_abnormal_compression_eta08",
+            "edge_set": "Base_CB",
+            "backbone": "current_relation",
+            "relation_model": "relation_attn",
+            "use_abnormal_edge_weight": True,
+            "abnormal_edge_eta": 0.8,
+            "abnormal_pair_mode": "both_high",
+            "abnormal_weight_relations": ["CB"],
+            "abnormal_weight_relation": "CB_ONLY",
+        },
+        {
+            "name": "D_opt_EGAT_Base_LogicAE_CB_TNSSparseSafeAttention",
+            "edge_set": "Base_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_tns_heavy": True,
+            "use_tns_heavy_attention": True,
+            "tns_attention_relations": ["LogicAE_CB"],
+            "tns_attention_mode": "sparse_safe",
+            "tns_attention_relation": "LogicAE_CB",
+        },
+        {
+            "name": "CD_fusion_EGAT_Base_CB_LogicAE_CB_Ccompress_TNSSparseSafeAttention",
+            "edge_set": "Base_CB_LogicAE_CB",
+            "backbone": "current_egat",
+            "relation_model": "edge_aware_gat",
+            "use_abnormal_edge_weight": True,
+            "abnormal_edge_eta": 0.8,
+            "abnormal_pair_mode": "both_high",
+            "abnormal_weight_relations": ["CB"],
+            "abnormal_weight_relation": "CB_ONLY",
+            "use_tns_heavy": True,
+            "use_tns_heavy_attention": True,
+            "tns_attention_relations": ["LogicAE_CB"],
+            "tns_attention_mode": "sparse_safe",
+            "tns_attention_relation": "LogicAE_CB",
+        },
+    ],
 }
 
 
@@ -167,7 +207,7 @@ def _read_senior_notes() -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run route experiments from existing in-repo artifacts.")
-    parser.add_argument("--route", choices=["A", "B", "C", "D", "D_HEAVY"], required=True)
+    parser.add_argument("--route", choices=["A", "B", "C", "D", "D_HEAVY", "CD_NEXT"], required=True)
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--abnormal_edge_lambda", type=float, default=1.0)
@@ -413,6 +453,7 @@ def run_route(args: argparse.Namespace) -> Path:
                 relation_topk=exp.get("relation_topk"),
                 use_node_gat=bool(exp.get("use_node_gat", False)),
                 abnormal_weight_relations=exp.get("abnormal_weight_relations"),
+                tns_attention_relations=exp.get("tns_attention_relations"),
             )
 
         graph_rows = result_df[result_df["edge_set"] == exp["edge_set"]].copy()
@@ -438,11 +479,14 @@ def run_route(args: argparse.Namespace) -> Path:
             "abnormal_gate_learnable": bool(exp.get("abnormal_gate_learnable", args.abnormal_gate_learnable)),
             "abnormal_attention_gamma": float(args.abnormal_attention_gamma),
             "abnormal_score_source": args.abnormal_score_source,
+            "abnormal_weight_relation": exp.get("abnormal_weight_relation"),
             "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
             "use_tns_confirmed_logic": bool(exp.get("use_tns_confirmed_logic", False)),
             "use_tns_heavy": bool(exp.get("use_tns_heavy", args.use_tns_heavy)),
             "use_tns_soft_heavy_logic": bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
             "use_tns_heavy_attention": bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
+            "tns_attention_mode": exp.get("tns_attention_mode"),
+            "tns_attention_relation": exp.get("tns_attention_relation"),
             "tns_phi_days": int(args.tns_phi_days),
             "tns_logic_mode": str(args.tns_logic_mode),
             "tns_logic_lambda": float(args.tns_logic_lambda),
@@ -508,11 +552,14 @@ def run_route(args: argparse.Namespace) -> Path:
                 "abnormal_pair_mode": str(exp.get("abnormal_pair_mode", args.abnormal_pair_mode)),
                 "abnormal_edge_eta": float(exp.get("abnormal_edge_eta", args.abnormal_edge_eta)),
                 "abnormal_gate_eta": float(exp.get("abnormal_gate_eta", args.abnormal_gate_eta)),
+                "abnormal_weight_relation": exp.get("abnormal_weight_relation"),
                 "use_tns_guided_logic": bool(exp.get("use_tns_guided_logic", False)),
                 "use_tns_confirmed_logic": bool(exp.get("use_tns_confirmed_logic", False)),
                 "use_tns_heavy": bool(exp.get("use_tns_heavy", args.use_tns_heavy)),
                 "use_tns_soft_heavy_logic": bool(exp.get("use_tns_soft_heavy_logic", args.use_tns_soft_heavy_logic)),
                 "use_tns_heavy_attention": bool(exp.get("use_tns_heavy_attention", args.use_tns_heavy_attention)),
+                "tns_attention_mode": exp.get("tns_attention_mode"),
+                "tns_attention_relation": exp.get("tns_attention_relation"),
                 "tns_phi_days": int(args.tns_phi_days),
                 "tns_logic_mode": str(args.tns_logic_mode),
                 "tns_logic_lambda": float(args.tns_logic_lambda),

@@ -1,0 +1,17 @@
+metric,segment,value
+raw_logicae_edge_count,all,105264.0
+raw_logicae_same_label_ratio,all,0.6135335917312662
+raw_logicae_fake_real_ratio,all,0.38646640826873385
+logicae_has_tns_heavy_evidence_ratio,all,0.001985484116127071
+selected_edge_count,LogicAE_CB,105264.0
+selected_isolated_user_count,LogicAE_CB,243.0
+selected_avg_degree,LogicAE_CB,16.393708145148732
+mean_session_fake_prior,fake_fake,0.001976079074665904
+same_burst_session_count,fake_fake,0.003919889219105244
+group_jaccard_overlap_max,fake_fake,0.00028124696109443903
+mean_session_fake_prior,fake_real,0.0005573115195147693
+same_burst_session_count,fake_real,0.0011799120111390948
+group_jaccard_overlap_max,fake_real,1.6387666619266383e-05
+mean_session_fake_prior,real_real,0.0007457140018232167
+same_burst_session_count,real_real,0.002132943831384182
+group_jaccard_overlap_max,real_real,0.0

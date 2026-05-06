@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -106,6 +108,21 @@ EDGE_FEATURE_CANDIDATES = [
     "logic_score_x_tns_heavy_score",
     "logic_score_x_tns_heavy_score_x_mean_session_fake_prior_norm",
 ]
+TNS_EDGE_FEATURE_COLUMNS = [
+    "same_burst_session_count_norm",
+    "temporal_closeness_norm",
+    "mean_session_fake_prior_norm",
+    "mean_session_logic_consistency_norm",
+    "group_jaccard_overlap_max_norm",
+    "repeated_group_count_norm",
+    "tns_heavy_score",
+    "logic_score_x_same_burst_session_count_norm",
+    "logic_score_x_mean_session_fake_prior_norm",
+    "logic_score_x_mean_session_logic_consistency_norm",
+    "logic_score_x_group_jaccard_overlap_max_norm",
+    "logic_score_x_tns_heavy_score",
+    "logic_score_x_tns_heavy_score_x_mean_session_fake_prior_norm",
+]
 
 
 @dataclass
@@ -115,6 +132,9 @@ class EdgePack:
     dst: np.ndarray
     weight: np.ndarray
     edge_features: np.ndarray
+    base_edge_features: np.ndarray
+    tns_edge_features: np.ndarray
+    has_tns_evidence: np.ndarray
     active_nodes: np.ndarray
 
 
@@ -155,6 +175,9 @@ def _build_edge_pack(
             dst=empty,
             weight=np.zeros((0,), dtype=np.float32),
             edge_features=np.zeros((0, 1), dtype=np.float32),
+            base_edge_features=np.zeros((0, 1), dtype=np.float32),
+            tns_edge_features=np.zeros((0, 1), dtype=np.float32),
+            has_tns_evidence=np.zeros((0,), dtype=np.float32),
             active_nodes=np.zeros((len(user_index),), dtype=bool),
         )
 
@@ -197,6 +220,9 @@ def _build_edge_pack(
             dst=empty,
             weight=np.zeros((0,), dtype=np.float32),
             edge_features=np.zeros((0, 1), dtype=np.float32),
+            base_edge_features=np.zeros((0, 1), dtype=np.float32),
+            tns_edge_features=np.zeros((0, 1), dtype=np.float32),
+            has_tns_evidence=np.zeros((0,), dtype=np.float32),
             active_nodes=np.zeros((len(user_index),), dtype=bool),
         )
 
@@ -206,7 +232,38 @@ def _build_edge_pack(
     edge_feature_columns = [column for column in EDGE_FEATURE_CANDIDATES if column in frame.columns]
     if not edge_feature_columns:
         edge_feature_columns = ["edge_weight"]
-    edge_features = frame.reindex(columns=edge_feature_columns, fill_value=0.0).fillna(0.0).to_numpy(dtype=np.float32)
+    base_feature_columns = [column for column in edge_feature_columns if column not in TNS_EDGE_FEATURE_COLUMNS and column != "has_tns_heavy_evidence"]
+    if not base_feature_columns:
+        base_feature_columns = ["edge_weight"]
+    raw_base_features = frame.reindex(columns=base_feature_columns, fill_value=0.0).fillna(0.0).to_numpy(dtype=np.float32)
+    base_edge_features = _standardize_feature_matrix(raw_base_features)
+
+    if relation_name == "LogicAE_CB":
+        tns_source_columns = [column for column in TNS_EDGE_FEATURE_COLUMNS if column in frame.columns]
+        if tns_source_columns:
+            tns_raw = frame.reindex(columns=tns_source_columns, fill_value=0.0).fillna(0.0).to_numpy(dtype=np.float32)
+            # Sparse-safe encoding: keep raw zero rows zero, log1p counts, min-max continuous features.
+            tns_processed = np.asarray(tns_raw, dtype=np.float32).copy()
+            count_like = {"same_burst_session_count_norm", "repeated_group_count_norm"}
+            for idx, column in enumerate(tns_source_columns):
+                values = tns_processed[:, idx].astype(np.float32)
+                if column in count_like:
+                    values = np.log1p(np.clip(values, 0.0, None))
+                else:
+                    values = np.clip(values, 0.0, 1.0)
+                tns_processed[:, idx] = values
+            tns_edge_features = tns_processed
+        else:
+            tns_edge_features = np.zeros((len(frame), 1), dtype=np.float32)
+        has_tns_evidence = pd.to_numeric(frame.get("has_tns_heavy_evidence", 0.0), errors="coerce").fillna(0.0).clip(0.0, 1.0).to_numpy(dtype=np.float32)
+        if tns_edge_features.shape[0] != len(has_tns_evidence):
+            has_tns_evidence = np.zeros((tns_edge_features.shape[0],), dtype=np.float32)
+        tns_edge_features = tns_edge_features * has_tns_evidence.reshape(-1, 1)
+    else:
+        tns_edge_features = np.zeros((len(frame), 1), dtype=np.float32)
+        has_tns_evidence = np.zeros((len(frame),), dtype=np.float32)
+
+    edge_features = base_edge_features
     active_nodes = np.zeros((len(user_index),), dtype=bool)
     active_nodes[src] = True
     active_nodes[dst] = True
@@ -215,7 +272,10 @@ def _build_edge_pack(
         src=src,
         dst=dst,
         weight=weights,
-        edge_features=_standardize_feature_matrix(edge_features),
+        edge_features=edge_features,
+        base_edge_features=base_edge_features,
+        tns_edge_features=tns_edge_features,
+        has_tns_evidence=has_tns_evidence,
         active_nodes=active_nodes,
     )
 
@@ -466,12 +526,15 @@ class _RelationEdgeAttention(torch.nn.Module):
         self,
         hidden_dim: int,
         edge_dim: int,
+        tns_edge_dim: int = 1,
         dropout: float = 0.2,
         use_learnable_gate: bool = False,
         gate_eta: float = 0.5,
+        use_tns_sparse_safe_attention: bool = False,
     ) -> None:
         super().__init__()
         self.edge_proj = torch.nn.Linear(edge_dim, hidden_dim, bias=False)
+        self.tns_edge_proj = torch.nn.Linear(max(1, tns_edge_dim), hidden_dim, bias=False)
         self.attn = torch.nn.Linear(hidden_dim * 3, 1, bias=False)
         self.out_proj = torch.nn.Linear(hidden_dim, hidden_dim)
         self.dropout = torch.nn.Dropout(dropout)
@@ -479,6 +542,7 @@ class _RelationEdgeAttention(torch.nn.Module):
         self.activation = torch.nn.LeakyReLU(0.2)
         self.use_learnable_gate = bool(use_learnable_gate)
         self.gate_eta = float(np.clip(gate_eta, 0.0, 1.0))
+        self.use_tns_sparse_safe_attention = bool(use_tns_sparse_safe_attention)
         self.gate_mlp = torch.nn.Sequential(
             torch.nn.Linear(edge_dim + hidden_dim, hidden_dim),
             torch.nn.ReLU(),
@@ -498,12 +562,17 @@ class _RelationEdgeAttention(torch.nn.Module):
 
         src = torch.as_tensor(edge_pack.src, dtype=torch.long, device=node_repr.device)
         dst = torch.as_tensor(edge_pack.dst, dtype=torch.long, device=node_repr.device)
-        edge_features = torch.as_tensor(edge_pack.edge_features, dtype=node_repr.dtype, device=node_repr.device)
+        edge_features = torch.as_tensor(edge_pack.base_edge_features, dtype=node_repr.dtype, device=node_repr.device)
         weights = torch.as_tensor(edge_pack.weight, dtype=node_repr.dtype, device=node_repr.device).clamp(min=1e-6)
 
         src_repr = node_repr[src]
         dst_repr = node_repr[dst]
         edge_repr = self.edge_proj(edge_features)
+        if self.use_tns_sparse_safe_attention:
+            tns_features = torch.as_tensor(edge_pack.tns_edge_features, dtype=node_repr.dtype, device=node_repr.device)
+            has_tns = torch.as_tensor(edge_pack.has_tns_evidence, dtype=node_repr.dtype, device=node_repr.device).unsqueeze(-1)
+            tns_repr = self.tns_edge_proj(tns_features) * has_tns
+            edge_repr = edge_repr + tns_repr
         scores = self.attn(self.activation(torch.cat([src_repr, dst_repr, edge_repr], dim=-1))).squeeze(-1)
         scores = scores + torch.log(weights)
         if abnormal_bias is not None:
@@ -571,6 +640,7 @@ class _RouteGraphClassifier(torch.nn.Module):
         input_dim: int,
         relations: Sequence[str],
         edge_dim_map: dict[str, int],
+        tns_edge_dim_map: dict[str, int],
         hidden_dim: int = 128,
         dropout: float = 0.2,
         senior_style: bool = False,
@@ -578,6 +648,7 @@ class _RouteGraphClassifier(torch.nn.Module):
         use_learnable_gate: bool = False,
         gate_eta: float = 0.5,
         use_node_gat: bool = False,
+        tns_attention_relations: Sequence[str] | None = None,
     ) -> None:
         super().__init__()
         self.relations = list(relations)
@@ -585,6 +656,7 @@ class _RouteGraphClassifier(torch.nn.Module):
         self.senior_style = senior_style
         self.num_layers = max(1, int(num_layers))
         self.use_node_gat = bool(use_node_gat)
+        self.tns_attention_relations = set(tns_attention_relations or [])
         classifier_input_dim = hidden_dim * 3 if self.use_node_gat else (hidden_dim * 3 if (senior_style and self.num_layers > 1) else hidden_dim * 2)
         self.input_proj = torch.nn.Linear(input_dim, hidden_dim)
         self.self_proj = torch.nn.Linear(input_dim, hidden_dim)
@@ -593,9 +665,11 @@ class _RouteGraphClassifier(torch.nn.Module):
                 relation: _RelationEdgeAttention(
                     hidden_dim=hidden_dim,
                     edge_dim=max(1, edge_dim_map.get(relation, 1)),
+                    tns_edge_dim=max(1, tns_edge_dim_map.get(relation, 1)),
                     dropout=dropout,
                     use_learnable_gate=use_learnable_gate,
                     gate_eta=gate_eta,
+                    use_tns_sparse_safe_attention=(relation in self.tns_attention_relations),
                 )
                 for relation in self.relations
             }
@@ -711,6 +785,7 @@ def _fit_graph_backbone_model(
     use_learnable_gate: bool = False,
     gate_eta: float = 0.5,
     use_node_gat: bool = False,
+    tns_attention_relations: Sequence[str] | None = None,
 ) -> tuple[Any, np.ndarray, np.ndarray]:
     torch, _, _ = _import_torch_modules()
     torch.manual_seed(seed)
@@ -732,11 +807,13 @@ def _fit_graph_backbone_model(
         dropout = 0.25 if backbone == "senior_exact" else 0.20
         num_layers = 2 if backbone == "senior_exact" else 1
     edge_dim_map = {relation: max(1, pack.edge_features.shape[1]) for relation, pack in edge_packs.items()}
+    tns_edge_dim_map = {relation: max(1, pack.tns_edge_features.shape[1]) for relation, pack in edge_packs.items()}
     senior_style = backbone in {"senior_exact", "senior_topk"}
     model = _RouteGraphClassifier(
         input_dim=input_dim,
         relations=sorted(edge_packs.keys()),
         edge_dim_map=edge_dim_map,
+        tns_edge_dim_map=tns_edge_dim_map,
         hidden_dim=hidden_dim,
         dropout=dropout,
         senior_style=senior_style,
@@ -744,6 +821,7 @@ def _fit_graph_backbone_model(
         use_learnable_gate=use_learnable_gate,
         gate_eta=gate_eta,
         use_node_gat=use_node_gat,
+        tns_attention_relations=tns_attention_relations,
     ).to(device)
 
     feature_tensor = torch.as_tensor(base_input, dtype=torch.float32, device=device)
@@ -839,6 +917,7 @@ def _predict_graph_backbone_probs(
     abnormal_biases: dict[str, np.ndarray] | None,
     abnormal_value_gates: dict[str, np.ndarray] | None,
     use_node_gat: bool,
+    tns_attention_relations: Sequence[str] | None,
     mask: np.ndarray,
     torch: Any,
     device: Any,
@@ -916,6 +995,7 @@ def run_relation_aggregation_experiments(
     relation_topk: int | None = None,
     use_node_gat: bool = False,
     abnormal_weight_relations: Sequence[str] | None = None,
+    tns_attention_relations: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -945,6 +1025,31 @@ def run_relation_aggregation_experiments(
         return aggregates, active_masks_local
 
     relation_aggregates, relation_active_masks = _compute_relation_views(edge_frames)
+
+    def _write_tns_edge_attr_pretrain_stats(edge_packs: dict[str, EdgePack]) -> None:
+        if not tns_attention_relations:
+            return
+        stats: dict[str, Any] = {}
+        for relation in tns_attention_relations:
+            pack = edge_packs.get(relation)
+            if pack is None:
+                continue
+            tns = np.asarray(pack.tns_edge_features, dtype=np.float32)
+            has = np.asarray(pack.has_tns_evidence, dtype=np.float32)
+            stats[relation] = {
+                "shape": list(tns.shape),
+                "min": float(tns.min()) if tns.size else 0.0,
+                "mean": float(tns.mean()) if tns.size else 0.0,
+                "max": float(tns.max()) if tns.size else 0.0,
+                "nonzero_ratio": float(np.count_nonzero(np.abs(tns) > 1e-12) / tns.size) if tns.size else 0.0,
+                "has_tns_evidence_ratio": float(np.mean(has > 0.0)) if has.size else 0.0,
+                "hash_sha256": hashlib.sha256(tns.tobytes()).hexdigest(),
+            }
+        if stats:
+            (output_dir / "tns_edge_attr_pretrain_stats.json").write_text(
+                json.dumps(stats, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
     user_abnormal_scores = None
     if review_scores_df is not None:
@@ -1045,6 +1150,7 @@ def run_relation_aggregation_experiments(
                 )
                 for relation in relations
             }
+            _write_tns_edge_attr_pretrain_stats(edge_packs)
             abnormal_biases = None
             abnormal_value_gates = None
             if use_abnormal_attention_bias and user_abnormal_scores is not None:
@@ -1084,6 +1190,7 @@ def run_relation_aggregation_experiments(
                 use_learnable_gate=bool(use_abnormal_gate and abnormal_gate_learnable),
                 gate_eta=abnormal_gate_eta,
                 use_node_gat=use_node_gat,
+                tns_attention_relations=tns_attention_relations,
             )
             torch_runtime, _, _ = _import_torch_modules()
             device = next(model.parameters()).device
@@ -1094,6 +1201,7 @@ def run_relation_aggregation_experiments(
                 abnormal_biases=abnormal_biases,
                 abnormal_value_gates=abnormal_value_gates,
                 use_node_gat=use_node_gat,
+                tns_attention_relations=tns_attention_relations,
                 mask=val_mask,
                 torch=torch_runtime,
                 device=device,
@@ -1105,6 +1213,7 @@ def run_relation_aggregation_experiments(
                 abnormal_biases=abnormal_biases,
                 abnormal_value_gates=abnormal_value_gates,
                 use_node_gat=use_node_gat,
+                tns_attention_relations=tns_attention_relations,
                 mask=test_mask,
                 torch=torch_runtime,
                 device=device,
