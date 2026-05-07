@@ -102,7 +102,8 @@ def main() -> None:
 
     graph_protocol = str(config.get("graph_protocol", "current_topk"))
     if graph_protocol == "full_base":
-        bundle = load_full_base_bundle()
+        feature_mode = str(config.get("full_base_feature_mode", "full_base_summary"))
+        bundle = load_full_base_bundle(feature_mode=feature_mode)
         edge_stats = write_full_base_edge_stats(bundle, experiment_dir)
         if "edge_type" in edge_stats.columns and "relation" not in edge_stats.columns:
             edge_stats = edge_stats.rename(columns={"edge_type": "relation"})

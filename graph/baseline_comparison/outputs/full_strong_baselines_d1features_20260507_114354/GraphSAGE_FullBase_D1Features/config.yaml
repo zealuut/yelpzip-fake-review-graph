@@ -1,0 +1,32 @@
+experiment_name: GraphSAGE_FullBase_D1Features
+model: GraphSAGE
+graph_protocol: full_base
+full_base_feature_mode: d1_current_features
+relations: UPU,UTU,USU
+relation_handling: homogeneous_union_graph
+feature_source: user_scores_enriched.csv + user_abnormal_vectors.npy (D1 current cached
+  features)
+hidden_dim: 128
+num_layers: 2
+heads: UNKNOWN_FROM_D1
+num_bases: UNKNOWN_FROM_D1
+aggregator: mean
+use_neighbor_sampling: false
+optimizer: AdamW
+lr: 0.001
+weight_decay: 0.0005
+dropout: 0.2
+epochs: 100
+patience: 16
+early_stopping_metric: val_auc
+loss_function: BCEWithLogitsLoss
+class_weight: balanced_pos_weight
+threshold_selection: validation_f1
+feature_normalization: inherited_from_D1_cached_features
+blocked_label_columns: UNKNOWN_FROM_D1
+seed: 42
+notes: FullBase_UPU_UTU_USU graph baseline with D1 current cached node features. Homogeneous
+  union graph over UPU/UTU/USU only. No LogicAE edges, no TNS, no abnormal compression,
+  no LLM mask feature branch.
+unknown_from_d1:
+- blocked_label_columns

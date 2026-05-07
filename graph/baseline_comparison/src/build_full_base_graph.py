@@ -11,6 +11,7 @@ import pandas as pd
 from graph.data_utils import LABEL_LEAKAGE_COLUMNS
 from graph.graph_pipeline import compute_edge_stats
 
+from .data_loader import load_protocol_bundle
 from .utils import standardize_like_d1
 
 
@@ -197,25 +198,46 @@ def _load_reference_metrics() -> dict[str, Any]:
     }
 
 
-def load_full_base_bundle() -> FullBaseProtocolBundle:
+def load_full_base_bundle(feature_mode: str = "full_base_summary") -> FullBaseProtocolBundle:
     config = _load_run_config()
-    user_df, feature_frame, feature_columns = _load_user_feature_frame()
-    node_features = standardize_like_d1(feature_frame[feature_columns].to_numpy(dtype=np.float32))
-    labels = pd.to_numeric(user_df["user_label"], errors="coerce").fillna(0).to_numpy(dtype=np.int64)
-    splits = user_df["split"].astype(str).to_numpy()
-    user_ids = user_df["user_id"].astype(str).tolist()
-    user_index = {user_id: idx for idx, user_id in enumerate(user_ids)}
+    if feature_mode == "d1_current_features":
+        current_bundle = load_protocol_bundle()
+        user_df = current_bundle.user_df.copy()
+        user_df["user_id"] = user_df["user_id"].astype(str)
+        feature_frame = user_df.copy()
+        feature_columns: list[str] = []
+        node_features = np.asarray(current_bundle.node_features, dtype=np.float32)
+        labels = current_bundle.labels.astype(np.int64)
+        splits = current_bundle.splits.astype(str)
+        user_ids = list(current_bundle.user_ids)
+        user_index = dict(current_bundle.user_index)
+        blocked = "UNKNOWN_FROM_D1"
+        feature_source = "user_scores_enriched.csv + user_abnormal_vectors.npy (D1 current cached features)"
+        notes = (
+            "FullBase_UPU_UTU_USU graph baseline with D1 node features. Reuses the same balanced user set, labels, and split as "
+            "the current D1 protocol. Node features come from the current mainline cached feature pipeline "
+            "(user_scores_enriched.csv + user_abnormal_vectors.npy); full graph still uses UPU/UTU/USU only."
+        )
+    else:
+        user_df, feature_frame, feature_columns = _load_user_feature_frame()
+        node_features = standardize_like_d1(feature_frame[feature_columns].to_numpy(dtype=np.float32))
+        labels = pd.to_numeric(user_df["user_label"], errors="coerce").fillna(0).to_numpy(dtype=np.int64)
+        splits = user_df["split"].astype(str).to_numpy()
+        user_ids = user_df["user_id"].astype(str).tolist()
+        user_index = {user_id: idx for idx, user_id in enumerate(user_ids)}
+        blocked = sorted(LABEL_LEAKAGE_COLUMNS)
+        feature_source = "logic_vectors/user_summary.csv numeric behavior features only"
+        notes = (
+            "FullBase_UPU_UTU_USU graph baseline. Reuses the same balanced user set, labels, and split as the current D1 protocol. "
+            "Node features are clean behavior/text-profile numeric features from logic_vectors/user_summary.csv only; "
+            "no LogicAE embedding, no LLM mask embedding, no TNS feature, no abnormal compression feature."
+        )
+
     edge_frames = _load_edge_frames()
     union_edges = _build_union_edges(edge_frames, user_index)
     relation_edges, relation_id_map = _build_relation_edges(edge_frames, user_index)
     split_stats = _build_split_stats(user_df)
     reference_metrics = _load_reference_metrics()
-    blocked = sorted(LABEL_LEAKAGE_COLUMNS)
-    notes = (
-        "FullBase_UPU_UTU_USU graph baseline. Reuses the same balanced user set, labels, and split as the current D1 protocol. "
-        "Node features are clean behavior/text-profile numeric features from logic_vectors/user_summary.csv only; "
-        "no LogicAE embedding, no LLM mask embedding, no TNS feature, no abnormal compression feature."
-    )
     return FullBaseProtocolBundle(
         config=config,
         user_df=user_df,
@@ -231,8 +253,8 @@ def load_full_base_bundle() -> FullBaseProtocolBundle:
         relation_id_map=relation_id_map,
         reference_metrics=reference_metrics,
         notes=notes,
-        feature_source="logic_vectors/user_summary.csv numeric behavior features only",
-        feature_dim=len(feature_columns),
+        feature_source=feature_source,
+        feature_dim=int(node_features.shape[1]),
         blocked_label_columns=blocked,
         split_stats=split_stats,
     )
