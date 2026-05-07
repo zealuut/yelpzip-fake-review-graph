@@ -8,7 +8,17 @@ import numpy as np
 import pandas as pd
 import torch
 
-from .baseline_models import GATCurrentTopK, GraphBatch, GraphSAGECurrentTopK, RGCNCurrentTopK
+from .baseline_models import (
+    GATBaseline,
+    GATCurrentTopK,
+    GCNBaseline,
+    GraphBatch,
+    GraphSAGEBaseline,
+    GraphSAGECurrentTopK,
+    RGCNBaseline,
+    RGCNCurrentTopK,
+)
+from .build_full_base_graph import FULL_BASE_RELATIONS, load_full_base_bundle, write_full_base_edge_stats
 from .data_loader import EDGE_TYPES, load_protocol_bundle, write_edge_stats
 from .metrics import epoch_frame, safe_binary_metrics, select_threshold_from_validation
 from .utils import load_yaml, save_json, save_yaml, seed_everything, setup_logger
@@ -47,17 +57,35 @@ def _build_batch(bundle: Any, relation_handling: str, device: torch.device) -> t
 def _build_model(config: dict[str, Any], input_dim: int, num_relations: int) -> torch.nn.Module:
     model_name = str(config["model"]).lower()
     hidden_dim = int(config["hidden_dim"])
+    num_layers = int(config.get("num_layers", 1))
     dropout = float(config["dropout"])
     if model_name == "gat":
-        return GATCurrentTopK(input_dim=input_dim, hidden_dim=hidden_dim, heads=int(config["heads"]), dropout=dropout)
+        heads = int(config["heads"])
+        if num_layers == 1:
+            return GATCurrentTopK(input_dim=input_dim, hidden_dim=hidden_dim, heads=heads, dropout=dropout)
+        return GATBaseline(input_dim=input_dim, hidden_dim=hidden_dim, heads=heads, num_layers=num_layers, dropout=dropout)
     if model_name == "graphsage":
-        return GraphSAGECurrentTopK(input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout)
+        if num_layers == 1:
+            return GraphSAGECurrentTopK(input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout)
+        return GraphSAGEBaseline(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout)
+    if model_name == "gcn":
+        return GCNBaseline(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout)
     if model_name == "rgcn":
-        return RGCNCurrentTopK(
+        num_bases = int(config["num_bases"])
+        if num_layers == 1:
+            return RGCNCurrentTopK(
+                input_dim=input_dim,
+                hidden_dim=hidden_dim,
+                num_relations=num_relations,
+                num_bases=num_bases,
+                dropout=dropout,
+            )
+        return RGCNBaseline(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
             num_relations=num_relations,
-            num_bases=int(config["num_bases"]),
+            num_bases=num_bases,
+            num_layers=num_layers,
             dropout=dropout,
         )
     raise ValueError(f"Unsupported model: {config['model']}")
@@ -72,14 +100,25 @@ def main() -> None:
     metrics_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logger(experiment_dir / "train.log")
 
-    bundle = load_protocol_bundle()
-    write_edge_stats(bundle, experiment_dir)
+    graph_protocol = str(config.get("graph_protocol", "current_topk"))
+    if graph_protocol == "full_base":
+        bundle = load_full_base_bundle()
+        edge_stats = write_full_base_edge_stats(bundle, experiment_dir)
+        if "edge_type" in edge_stats.columns and "relation" not in edge_stats.columns:
+            edge_stats = edge_stats.rename(columns={"edge_type": "relation"})
+            edge_stats.to_csv(metrics_dir / "edge_stats.csv", index=False)
+        relation_names = FULL_BASE_RELATIONS
+    else:
+        bundle = load_protocol_bundle()
+        edge_stats = write_edge_stats(bundle, experiment_dir)
+        relation_names = EDGE_TYPES
 
     seed = int(config["seed"])
     seed_everything(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch, num_edges = _build_batch(bundle, config["relation_handling"], device)
-    model = _build_model(config, input_dim=bundle.node_features.shape[1], num_relations=len(EDGE_TYPES)).to(device)
+    model = _build_model(config, input_dim=bundle.node_features.shape[1], num_relations=len(relation_names)).to(device)
+    logger.info("protocol=%s model=%s device=%s num_nodes=%s num_edges=%s", graph_protocol, config["model"], device, len(bundle.user_ids), num_edges)
 
     labels = torch.as_tensor(bundle.labels.astype(np.float32), dtype=torch.float32, device=device)
     train_mask = torch.as_tensor(bundle.splits == "train", dtype=torch.bool, device=device)
@@ -163,6 +202,7 @@ def main() -> None:
             "user_id": np.asarray(bundle.user_ids)[bundle.splits == "test"],
             "label": test_labels.astype(int),
             "prob": test_probs.astype(np.float32),
+            "score_or_prob": test_probs.astype(np.float32),
             "pred": (test_probs >= test_threshold).astype(int),
             "split": "test",
         }
@@ -170,19 +210,37 @@ def main() -> None:
     test_pred_frame.to_csv(metrics_dir / "test_predictions.csv", index=False)
     epoch_frame(epoch_rows).to_csv(metrics_dir / "epoch_metrics.csv", index=False)
 
+    split_stats = getattr(bundle, "split_stats", {})
+    feature_dim = int(getattr(bundle, "feature_dim", bundle.node_features.shape[1]))
+    blocked_label_columns = getattr(bundle, "blocked_label_columns", "UNKNOWN_FROM_D1")
+    if isinstance(blocked_label_columns, list):
+        blocked_label_columns = ",".join(blocked_label_columns)
+    total_edges = int(edge_stats["num_edges"].sum()) if len(edge_stats) else int(num_edges)
     result_row = {
         "experiment_name": config["experiment_name"],
         "model": config["model"],
         "graph_protocol": config["graph_protocol"],
-        "edge_set": config["edge_set"],
+        "relations": config.get("relations", config.get("edge_set", "UNKNOWN")),
         "relation_handling": config["relation_handling"],
         "feature_source": config["feature_source"],
+        "feature_dim": feature_dim,
+        "blocked_label_columns": blocked_label_columns,
         "num_users": len(bundle.user_ids),
-        "num_edges": int(num_edges),
+        "num_train": int(split_stats.get("num_train", int((bundle.splits == "train").sum()))),
+        "num_val": int(split_stats.get("num_val", int((bundle.splits == "val").sum()))),
+        "num_test": int(split_stats.get("num_test", int((bundle.splits == "test").sum()))),
+        "num_fake_train": int(split_stats.get("num_fake_train", int(bundle.labels[bundle.splits == "train"].sum()))),
+        "num_real_train": int(split_stats.get("num_real_train", int((bundle.splits == "train").sum() - bundle.labels[bundle.splits == "train"].sum()))),
+        "num_fake_val": int(split_stats.get("num_fake_val", int(bundle.labels[bundle.splits == "val"].sum()))),
+        "num_real_val": int(split_stats.get("num_real_val", int((bundle.splits == "val").sum() - bundle.labels[bundle.splits == "val"].sum()))),
+        "num_fake_test": int(split_stats.get("num_fake_test", int(bundle.labels[bundle.splits == "test"].sum()))),
+        "num_real_test": int(split_stats.get("num_real_test", int((bundle.splits == "test").sum() - bundle.labels[bundle.splits == "test"].sum()))),
+        "num_edges": total_edges,
         "hidden_dim": int(config["hidden_dim"]),
         "num_layers": int(config["num_layers"]),
         "heads": config.get("heads", "UNKNOWN_FROM_D1"),
         "num_bases": config.get("num_bases", "UNKNOWN_FROM_D1"),
+        "use_neighbor_sampling": bool(config.get("use_neighbor_sampling", False)),
         "optimizer": config["optimizer"],
         "lr": float(config["lr"]),
         "weight_decay": float(config["weight_decay"]),
@@ -211,6 +269,9 @@ def main() -> None:
             "test_threshold": float(test_threshold),
             "metrics": result_row,
             "d1_alignment_notes": bundle.notes,
+            "split_stats": split_stats,
+            "feature_dim": feature_dim,
+            "blocked_label_columns": getattr(bundle, "blocked_label_columns", []),
             "unknown_from_d1": config.get("unknown_from_d1", []),
         },
     )

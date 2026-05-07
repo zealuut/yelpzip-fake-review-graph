@@ -6,12 +6,15 @@ from pathlib import Path
 
 import pandas as pd
 
+from graph.baseline_comparison.src.build_full_base_graph import load_full_base_bundle
 from graph.baseline_comparison.src.data_loader import load_protocol_bundle
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-root", required=True)
+    parser.add_argument("--protocol", default="current_topk", choices=["current_topk", "full_base"])
+    parser.add_argument("--summary-prefix", default="baseline_summary")
     return parser.parse_args()
 
 
@@ -25,15 +28,17 @@ def main() -> None:
         metrics = payload["metrics"]
         rows.append(metrics)
 
-    bundle = load_protocol_bundle()
+    bundle = load_full_base_bundle() if args.protocol == "full_base" else load_protocol_bundle()
     rows.append(bundle.reference_metrics)
     summary_df = pd.DataFrame(rows)
-    summary_df.to_csv(output_root / "baseline_summary.csv", index=False)
+    csv_path = output_root / f"{args.summary_prefix}.csv"
+    md_path = output_root / f"{args.summary_prefix}.md"
+    summary_df.to_csv(csv_path, index=False)
     try:
         markdown = summary_df.to_markdown(index=False)
     except Exception:
         markdown = "# Baseline Summary\n\n```csv\n" + summary_df.to_csv(index=False) + "```\n"
-    output_root.joinpath("baseline_summary.md").write_text(markdown, encoding="utf-8")
+    md_path.write_text(markdown, encoding="utf-8")
 
 
 if __name__ == "__main__":
