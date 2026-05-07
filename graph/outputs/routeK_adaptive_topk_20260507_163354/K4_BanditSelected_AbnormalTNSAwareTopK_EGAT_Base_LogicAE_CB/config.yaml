@@ -1,0 +1,8 @@
+experiment_name: K4_BanditSelected_AbnormalTNSAwareTopK_EGAT_Base_LogicAE_CB
+selected_arm_id: 1
+selected_arm_k:
+  UPU_k: 10
+  UTU_k: 10
+  USU_k: 20
+  LogicAE_CB_k: 20
+bandit_lambda_density: 0.02

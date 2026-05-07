@@ -2415,6 +2415,215 @@ def write_abnormal_weight_debug_metrics(
     pd.DataFrame(cb_quantile_rows).to_csv(metrics_dir / "cb_weight_before_after_quantiles.csv", index=False)
 
 
+def build_routek_adaptive_topk_graph_frames(
+    user_df: pd.DataFrame,
+    review_features: pd.DataFrame,
+    user_text_vectors: np.ndarray,
+    user_abnormal_vectors: np.ndarray,
+    output_dir: str | Path,
+    topk_mode: str,
+    relation_k: dict[str, int],
+    alpha_abnormal: float = 0.5,
+    beta_tns: float = 0.2,
+    gamma_interaction: float = 0.2,
+    tns_phi_days: int = 5,
+    abnormal_score_source: str = "auto",
+    logic_threshold_mode: str = "quantile",
+    logic_threshold_quantile: float = 0.60,
+    logic_threshold_value: float = 0.30,
+) -> dict[str, pd.DataFrame]:
+    output_dir = Path(output_dir)
+    metrics_dir = output_dir / "metrics"
+    edge_dir = output_dir / "edges"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    edge_dir.mkdir(parents=True, exist_ok=True)
+
+    user_ids = user_df["user_id"].astype(str).tolist()
+    user_abnormal_scores = build_user_abnormal_score_vector(
+        user_df=user_df,
+        review_scores_df=review_features,
+        source=abnormal_score_source,
+        aggregate="mean",
+        top_k=3,
+    )
+    user_score_map = {user_id: float(np.clip(score, 0.0, 1.0)) for user_id, score in zip(user_ids, user_abnormal_scores)}
+
+    def _pair_abnormal_score(src_user_id: Any, dst_user_id: Any) -> float:
+        src = float(user_score_map.get(_normalize_user_id_value(src_user_id), 0.0))
+        dst = float(user_score_map.get(_normalize_user_id_value(dst_user_id), 0.0))
+        return float(np.clip(np.sqrt(src * dst) * (1.0 - abs(src - dst)), 0.0, 1.0))
+
+    base_edge_frames = build_edge_frames(
+        user_df=user_df,
+        user_text_vectors=user_text_vectors,
+        user_abnormal_vectors=user_abnormal_vectors,
+        output_dir=output_dir,
+        top_k=max(relation_k.values()) if relation_k else 20,
+        review_features=review_features,
+        logic_threshold_mode=logic_threshold_mode,
+        logic_threshold_quantile=logic_threshold_quantile,
+        logic_threshold_value=logic_threshold_value,
+        graph_mode="current",
+        senior_usu_ratio=0.10,
+        use_tns_guided_logic=False,
+        use_tns_confirmed_logic=False,
+        use_tns_heavy=False,
+        use_tns_soft_heavy_logic=False,
+        use_tns_heavy_attention=False,
+    )
+
+    tns_heavy_cache = _build_tns_heavy_feature_cache(
+        logic_edges=base_edge_frames.get("LogicAE_CB", pd.DataFrame()),
+        review_features=review_features,
+        user_df=user_df,
+        user_abnormal_vectors=user_abnormal_vectors,
+        phi_days=tns_phi_days,
+    )
+    temporal_cache = _build_temporal_event_features(review_features, phi_days=tns_phi_days)
+    temporal_lookup = {
+        tuple(sorted((str(row.src_user_id), str(row.dst_user_id)))): row._asdict()
+        for row in temporal_cache.itertuples(index=False)
+    }
+    tns_lookup: dict[str, float] = {}
+    pair_df = tns_heavy_cache.get("pair_df", pd.DataFrame())
+    if not pair_df.empty:
+        for row in pair_df.itertuples(index=False):
+            tns_lookup[_undirected_pair_key(row.src_user_id, row.dst_user_id)] = float(
+                _safe_float(getattr(row, "tns_heavy_score", getattr(row, "temporal_score", 0.0)))
+            )
+
+    def _rank_score(row: pd.Series, relation_name: str) -> float:
+        base_score = _safe_float(row.get("edge_weight", 0.0))
+        abnormal_pair = _pair_abnormal_score(row["src_user_id"], row["dst_user_id"])
+        key = tuple(sorted((str(row["src_user_id"]), str(row["dst_user_id"]))))
+        pair_key = _undirected_pair_key(row["src_user_id"], row["dst_user_id"])
+        temporal_row = temporal_lookup.get(key, {})
+        tns_score = _clip01(tns_lookup.get(pair_key, _safe_float(temporal_row.get("temporal_score", 0.0))))
+        if topk_mode == "abnormal_aware":
+            return float(base_score * (1.0 + alpha_abnormal * abnormal_pair))
+        if topk_mode == "abnormal_tns_aware":
+            return float(base_score * (1.0 + alpha_abnormal * abnormal_pair) * (1.0 + beta_tns * tns_score) * (1.0 + gamma_interaction * abnormal_pair * tns_score))
+        return float(base_score)
+
+    renamed_frames: dict[str, pd.DataFrame] = {}
+    quality_rows: list[dict[str, Any]] = []
+    rank_rows: list[dict[str, Any]] = []
+    degree_rows: list[dict[str, Any]] = []
+    relation_sources = {
+        "UPU": "UPU",
+        "UTU": "UTU",
+        "USU": "USU",
+        "LogicAE_CB": "LogicAE_CB",
+    }
+    for relation_name, source_name in relation_sources.items():
+        frame = base_edge_frames.get(source_name, pd.DataFrame()).copy()
+        if frame.empty:
+            renamed_frames[relation_name] = frame
+            quality_rows.append({
+                "relation": relation_name,
+                "k": int(relation_k.get(relation_name, 20)),
+                "num_edges": 0,
+                "avg_degree": 0.0,
+                "isolated_user_count": int(user_df.shape[0]),
+                "same_label_ratio": 0.0,
+                "fake_fake_ratio": 0.0,
+                "fake_real_ratio": 0.0,
+                "real_real_ratio": 0.0,
+                "avg_base_score": 0.0,
+                "avg_abnormal_pair": 0.0,
+                "avg_tns_score": 0.0,
+                "avg_rank_score": 0.0,
+            })
+            continue
+        frame["pair_abnormal_score"] = frame.apply(lambda row: _pair_abnormal_score(row["src_user_id"], row["dst_user_id"]), axis=1)
+        frame["tns_score"] = frame.apply(
+            lambda row: float(tns_lookup.get(_undirected_pair_key(row["src_user_id"], row["dst_user_id"]), 0.0)),
+            axis=1,
+        )
+        frame["base_score"] = pd.to_numeric(frame.get("edge_weight", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+        frame["rank_score"] = frame.apply(lambda row: _rank_score(row, relation_name), axis=1)
+        frame["edge_weight_before"] = frame["base_score"].astype(np.float32)
+        frame["edge_weight"] = frame["rank_score"].astype(np.float32)
+        frame["edge_weight_after"] = frame["edge_weight"].astype(np.float32)
+        frame = frame.sort_values(["src_user_id", "rank_score", "dst_user_id"], ascending=[True, False, True], kind="mergesort")
+        k = int(relation_k.get(relation_name, 20))
+        frame = frame.groupby("src_user_id", group_keys=False).head(k).reset_index(drop=True)
+        renamed_frames[relation_name] = frame
+
+        user_label_map = user_df.set_index(user_df["user_id"].astype(str))["user_label"].astype(int).to_dict()
+        degree_counter = Counter(frame["src_user_id"].astype(str).tolist()) if not frame.empty else Counter()
+        fake_fake = 0
+        fake_real = 0
+        real_real = 0
+        for edge in frame.itertuples(index=False):
+            src_label = int(user_label_map.get(str(edge.src_user_id), 0))
+            dst_label = int(user_label_map.get(str(edge.dst_user_id), 0))
+            if src_label == 1 and dst_label == 1:
+                fake_fake += 1
+            elif src_label == 0 and dst_label == 0:
+                real_real += 1
+            else:
+                fake_real += 1
+        num_edges = int(len(frame))
+        quality_rows.append(
+            {
+                "relation": relation_name,
+                "k": k,
+                "num_edges": num_edges,
+                "avg_degree": float(np.mean(list(degree_counter.values())) if degree_counter else 0.0),
+                "isolated_user_count": int(user_df[~user_df["user_id"].astype(str).isin(degree_counter.keys())].shape[0]),
+                "same_label_ratio": float((fake_fake + real_real) / max(num_edges, 1)),
+                "fake_fake_ratio": float(fake_fake / max(num_edges, 1)),
+                "fake_real_ratio": float(fake_real / max(num_edges, 1)),
+                "real_real_ratio": float(real_real / max(num_edges, 1)),
+                "avg_base_score": float(frame["base_score"].mean()) if not frame.empty else 0.0,
+                "avg_abnormal_pair": float(frame["pair_abnormal_score"].mean()) if not frame.empty else 0.0,
+                "avg_tns_score": float(frame["tns_score"].mean()) if not frame.empty else 0.0,
+                "avg_rank_score": float(frame["rank_score"].mean()) if not frame.empty else 0.0,
+            }
+        )
+        rank_rows.append(
+            {
+                "relation": relation_name,
+                "k": k,
+                "min_rank_score": float(frame["rank_score"].min()) if not frame.empty else 0.0,
+                "mean_rank_score": float(frame["rank_score"].mean()) if not frame.empty else 0.0,
+                "max_rank_score": float(frame["rank_score"].max()) if not frame.empty else 0.0,
+                "mean_base_score": float(frame["base_score"].mean()) if not frame.empty else 0.0,
+                "mean_abnormal_pair": float(frame["pair_abnormal_score"].mean()) if not frame.empty else 0.0,
+                "mean_tns_score": float(frame["tns_score"].mean()) if not frame.empty else 0.0,
+            }
+        )
+        degree_rows.append(
+            {
+                "relation": relation_name,
+                "k": k,
+                "num_edges": num_edges,
+                "avg_degree": float(np.mean(list(degree_counter.values())) if degree_counter else 0.0),
+                "isolated_user_count": int(user_df[~user_df["user_id"].astype(str).isin(degree_counter.keys())].shape[0]),
+            }
+        )
+
+    pd.DataFrame(quality_rows).to_csv(metrics_dir / "topk_edge_quality_by_relation.csv", index=False)
+    pd.DataFrame(rank_rows).to_csv(metrics_dir / "topk_rank_score_stats.csv", index=False)
+    pd.DataFrame(degree_rows).to_csv(metrics_dir / "topk_relation_degree_stats.csv", index=False)
+    edge_config = {
+        "graph_mode": "current",
+        "topk_mode": str(topk_mode),
+        "relation_k": {k: int(v) for k, v in relation_k.items()},
+        "alpha_abnormal": float(alpha_abnormal),
+        "beta_tns": float(beta_tns),
+        "gamma_interaction": float(gamma_interaction),
+        "tns_phi_days": int(tns_phi_days),
+        "abnormal_score_source": str(abnormal_score_source),
+        "notes": "Route K adaptive top-k graph, current top-k graph only.",
+    }
+    (edge_dir / "edge_build_config.json").write_text(json.dumps(edge_config, indent=2, ensure_ascii=False), encoding="utf-8")
+    for relation_name, frame in renamed_frames.items():
+        frame.to_csv(edge_dir / f"{relation_name}_edges.csv", index=False)
+    return renamed_frames
+
+
 def compute_edge_stats(
     edge_frames: dict[str, pd.DataFrame],
     user_df: pd.DataFrame,

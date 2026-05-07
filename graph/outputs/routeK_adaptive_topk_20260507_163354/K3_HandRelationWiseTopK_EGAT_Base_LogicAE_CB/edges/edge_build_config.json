@@ -1,0 +1,16 @@
+{
+  "graph_mode": "current",
+  "topk_mode": "abnormal_tns_aware",
+  "relation_k": {
+    "UPU": 10,
+    "UTU": 10,
+    "USU": 10,
+    "LogicAE_CB": 30
+  },
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "tns_phi_days": 5,
+  "abnormal_score_source": "auto",
+  "notes": "Route K adaptive top-k graph, current top-k graph only."
+}

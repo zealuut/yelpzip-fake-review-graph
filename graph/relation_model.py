@@ -847,7 +847,10 @@ def _fit_graph_backbone_model(
     use_relation_sigmoid_gate: bool = False,
     use_self_aux_loss: bool = False,
     self_aux_lambda: float = 0.3,
-) -> tuple[Any, np.ndarray, np.ndarray]:
+    max_epochs_override: int | None = None,
+    patience_override: int | None = None,
+    return_training_details: bool = False,
+) -> tuple[Any, np.ndarray, np.ndarray] | tuple[Any, np.ndarray, np.ndarray, dict[str, Any]]:
     torch, _, _ = _import_torch_modules()
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -898,10 +901,16 @@ def _fit_graph_backbone_model(
 
     best_state = None
     best_val_auc = -1.0
+    best_epoch = 0
     bad_epochs = 0
     max_epochs = 120 if backbone == "senior_topk" else (140 if senior_style else 100)
     patience = 18 if backbone == "senior_topk" else (20 if senior_style else 16)
+    if max_epochs_override is not None and int(max_epochs_override) > 0:
+        max_epochs = int(max_epochs_override)
+    if patience_override is not None and int(patience_override) > 0:
+        patience = int(patience_override)
     rng = np.random.default_rng(seed)
+    epoch_rows: list[dict[str, Any]] = []
 
     union_pack = None
     if use_node_gat:
@@ -928,7 +937,7 @@ def _fit_graph_backbone_model(
                 active_nodes=np.ones((base_input.shape[0],), dtype=bool),
             )
 
-    for _epoch in range(max_epochs):
+    for epoch_idx in range(1, max_epochs + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=amp_enabled):
@@ -965,15 +974,36 @@ def _fit_graph_backbone_model(
         val_auc = _safe_binary_metrics(labels[val_mask], val_probs, threshold=0.5)["auc"]
         if val_auc > best_val_auc + 1e-5:
             best_val_auc = val_auc
+            best_epoch = int(epoch_idx)
             best_state = {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
             bad_epochs = 0
         else:
             bad_epochs += 1
-            if bad_epochs >= patience:
-                break
+        epoch_rows.append(
+            {
+                "epoch": int(epoch_idx),
+                "train_loss": float(loss.detach().cpu().item()),
+                "val_auc": float(val_auc),
+                "best_val_auc": float(best_val_auc),
+                "improved": bool(val_auc >= best_val_auc - 1e-12 and best_epoch == int(epoch_idx)),
+                "bad_epochs": int(bad_epochs),
+                "patience": int(patience),
+            }
+        )
+        if bad_epochs >= patience:
+            break
 
     if best_state is not None:
         model.load_state_dict(best_state)
+    training_details = {
+        "best_epoch": int(best_epoch),
+        "best_val_auc": float(best_val_auc),
+        "max_epochs": int(max_epochs),
+        "patience": int(patience),
+        "epoch_metrics": epoch_rows,
+    }
+    if return_training_details:
+        return model, base_input, feature_tensor.detach().cpu().numpy(), training_details
     return model, base_input, feature_tensor.detach().cpu().numpy()
 
 
@@ -1067,6 +1097,9 @@ def run_relation_aggregation_experiments(
     use_relation_sigmoid_gate: bool = False,
     use_self_aux_loss: bool = False,
     self_aux_lambda: float = 0.3,
+    max_epochs_override: int | None = None,
+    patience_override: int | None = None,
+    return_training_details: bool = False,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1248,7 +1281,7 @@ def run_relation_aggregation_experiments(
                             pair_score = frame["pair_abnormal_score"].fillna(0.0).astype(float).to_numpy(dtype=np.float32)
                             eta = float(abnormal_gate_eta if (use_abnormal_gate or use_abnormal_value_gate) else abnormal_edge_eta)
                             abnormal_value_gates[relation] = np.clip(1.0 + eta * (2.0 * pair_score - 1.0), 1.0 - eta, 1.0 + eta).astype(np.float32)
-            model, base_input, _ = _fit_graph_backbone_model(
+            fit_result = _fit_graph_backbone_model(
                 node_features=self_features,
                 edge_packs=edge_packs,
                 labels=labels,
@@ -1266,7 +1299,15 @@ def run_relation_aggregation_experiments(
                 use_relation_sigmoid_gate=use_relation_sigmoid_gate,
                 use_self_aux_loss=use_self_aux_loss,
                 self_aux_lambda=self_aux_lambda,
+                max_epochs_override=max_epochs_override,
+                patience_override=patience_override,
+                return_training_details=return_training_details,
             )
+            training_details = None
+            if return_training_details:
+                model, base_input, _, training_details = fit_result
+            else:
+                model, base_input, _ = fit_result
             torch_runtime, _, _ = _import_torch_modules()
             device = next(model.parameters()).device
             val_probs = _predict_graph_backbone_probs(
@@ -1332,6 +1373,22 @@ def run_relation_aggregation_experiments(
 
         val_metrics = _safe_binary_metrics(labels[val_mask], val_probs, threshold=threshold)
         test_metrics = _safe_binary_metrics(labels[test_mask], test_probs, threshold=threshold)
+
+        if return_training_details and training_details and edge_set_name == selected_edge_set:
+            epoch_rows = training_details.get("epoch_metrics", [])
+            if epoch_rows:
+                pd.DataFrame(epoch_rows).to_csv(output_dir / "epoch_metrics.csv", index=False)
+            test_pred_frame = pd.DataFrame(
+                {
+                    "user_id": np.asarray(user_ids)[test_mask],
+                    "label": labels[test_mask].astype(int),
+                    "prob": test_probs.astype(np.float32),
+                    "score_or_prob": test_probs.astype(np.float32),
+                    "pred": (test_probs >= threshold).astype(int),
+                    "split": "test",
+                }
+            )
+            test_pred_frame.to_csv(output_dir / "test_predictions.csv", index=False)
 
         results.append(
             {

@@ -1,0 +1,19 @@
+{
+  "timestamp": "20260507_163358",
+  "seed": 42,
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "abnormal_score_source": "auto",
+  "bandit_warmup_epochs": 15,
+  "bandit_lambda_density": 0.02,
+  "reference": {
+    "experiment_name": "CurrentTopK_EGAT_Base_LogicAE_CB",
+    "AUC": 0.85637,
+    "AP": 0.85837,
+    "F1": 0.77817,
+    "Recall": 0.82309,
+    "Precision": 0.7379,
+    "source": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB"
+  }
+}
