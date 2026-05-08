@@ -1,0 +1,13 @@
+{
+  "route": "K_D1MAIN_RNS",
+  "experiment_name": "K4_D1Main",
+  "selected_arm_id": 1,
+  "selected_relation_k": {
+    "UPU": 10,
+    "UTU": 10,
+    "USU": 20,
+    "LogicAE_CB": 20
+  },
+  "use_recall_constrained_reward": false,
+  "reference_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB"
+}

@@ -1,0 +1,21 @@
+{
+  "graph_mode": "current",
+  "topk_mode": "abnormal_tns_aware",
+  "relation_k": {
+    "UPU": 10,
+    "UTU": 10,
+    "USU": 20,
+    "LogicAE_CB": 20
+  },
+  "candidate_topM": {},
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "tns_phi_days": 5,
+  "abnormal_score_source": "auto",
+  "use_relation_specific_denoise": false,
+  "use_base_reserve": false,
+  "base_reserve_ratio": 0.3,
+  "preserve_d1_for_fixed_k0": false,
+  "notes": "Route K D1Main/RNS graph using D1-aligned features and current candidate edges."
+}

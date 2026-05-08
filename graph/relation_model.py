@@ -12,6 +12,7 @@ import pandas as pd
 import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import fbeta_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -75,11 +76,17 @@ TEXTUAL_FEATURE_COLUMNS = [
 
 EDGE_FEATURE_CANDIDATES = [
     "edge_weight",
+    "base_score",
+    "rank_score",
+    "reliability_score",
     "pair_abnormal_score",
+    "abnormal_pair",
+    "abnormal_tns_interaction",
     "abnormal_score_src",
     "abnormal_score_dst",
     "abnormal_gate",
     "temporal_score",
+    "tns_score",
     "interaction_score",
     "logic_rank",
     "shared_product_count",
@@ -110,6 +117,8 @@ EDGE_FEATURE_CANDIDATES = [
     "logic_rank_percentile",
     "mutual_logic_flag",
     "mutual_logic_score",
+    "is_base_reserve_edge",
+    "is_reliability_selected_edge",
 ]
 TNS_EDGE_FEATURE_COLUMNS = [
     "same_burst_session_count_norm",
@@ -152,6 +161,11 @@ def _safe_binary_metrics(labels: np.ndarray, probs: np.ndarray, threshold: float
         "f1": float(f1_score(labels, preds, zero_division=0)),
         "accuracy": float(accuracy_score(labels, preds)),
     }
+
+
+def _safe_fbeta(labels: np.ndarray, probs: np.ndarray, threshold: float, beta: float) -> float:
+    preds = (probs >= threshold).astype(int)
+    return float(fbeta_score(labels, preds, beta=beta, zero_division=0))
 
 
 def _standardize_feature_matrix(matrix: np.ndarray) -> np.ndarray:
@@ -1378,6 +1392,17 @@ def run_relation_aggregation_experiments(
             epoch_rows = training_details.get("epoch_metrics", [])
             if epoch_rows:
                 pd.DataFrame(epoch_rows).to_csv(output_dir / "epoch_metrics.csv", index=False)
+            val_pred_frame = pd.DataFrame(
+                {
+                    "user_id": np.asarray(user_ids)[val_mask],
+                    "label": labels[val_mask].astype(int),
+                    "prob": val_probs.astype(np.float32),
+                    "score_or_prob": val_probs.astype(np.float32),
+                    "pred": (val_probs >= threshold).astype(int),
+                    "split": "val",
+                }
+            )
+            val_pred_frame.to_csv(output_dir / "val_predictions.csv", index=False)
             test_pred_frame = pd.DataFrame(
                 {
                     "user_id": np.asarray(user_ids)[test_mask],
@@ -1415,6 +1440,10 @@ def run_relation_aggregation_experiments(
                 "precision": test_metrics["precision"],
                 "f1": test_metrics["f1"],
                 "accuracy": test_metrics["accuracy"],
+                "val_recall": val_metrics["recall"],
+                "val_precision": val_metrics["precision"],
+                "val_f1": val_metrics["f1"],
+                "val_f2": _safe_fbeta(labels[val_mask], val_probs, threshold=threshold, beta=2.0),
                 "num_train_users": int(train_mask.sum()),
                 "num_val_users": int(val_mask.sum()),
                 "num_test_users": int(test_mask.sum()),
