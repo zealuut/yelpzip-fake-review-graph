@@ -1,0 +1,23 @@
+{
+  "experiment_name": "L1_EarlyFusion_NoAux",
+  "fusion_mode": "early",
+  "use_aux_loss": false,
+  "lambda_aux": 0.0,
+  "warmup_ratio": 0.3,
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "ef546929db55ec882d7d2dffc9961780597ea9ddd533300a238359a01acadac0",
+  "review_auc": 0.7528018430636796,
+  "review_ap": 0.6061220002026395,
+  "review_f1": 0.6221735959153902,
+  "review_recall": 0.729059829059829,
+  "review_precision": 0.5426208651399491,
+  "graph_auc": 0.8168801656143443,
+  "graph_ap": 0.7994643769372083,
+  "graph_f1": 0.7540322580645161,
+  "graph_recall": 0.841079460269865,
+  "graph_precision": 0.6833130328867235,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.1879798620939254,
+  "notes": ""
+}
