@@ -248,7 +248,8 @@ def encode_routeL_all_reviews(
     with torch.no_grad():
         for batch in dataloader:
             review_ids = batch["review_id"].cpu().numpy()
-            warmup_active = bool(fusion_mode == "late" and anomaly_warmup_ratio > 0.0)
+            # Export final inference-time representations; late-fusion warmup must be disabled here.
+            warmup_active = False
             outputs = model(
                 input_ids=batch["input_ids"].to(device),
                 attention_mask=batch["attention_mask"].to(device),

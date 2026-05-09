@@ -435,6 +435,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--config_paths", nargs="*", default=None)
     args = parser.parse_args()
 
     project_root = project_root_from_here()
@@ -445,12 +446,13 @@ def main() -> None:
         raise SystemExit(1)
 
     config_dir = project_root / "graph/routeL_llmmask_anomaly_aux/configs"
-    cfg_paths = [
+    default_cfg_paths = [
         config_dir / "L1_early_noaux.yaml",
         config_dir / "L2_early_aux.yaml",
         config_dir / "L3_late_noaux.yaml",
         config_dir / "L4_late_aux.yaml",
     ]
+    cfg_paths = [Path(p) for p in args.config_paths] if args.config_paths else default_cfg_paths
     summaries = []
     for cfg_path in cfg_paths:
         summaries.append(run_single(cfg_path, output_root, seed=args.seed))
