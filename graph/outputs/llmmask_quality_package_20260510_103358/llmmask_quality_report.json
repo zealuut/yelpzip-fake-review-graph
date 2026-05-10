@@ -1,0 +1,104 @@
+{
+  "source_reviews_path": "graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620/prepared_data/reviews_canonical.csv",
+  "source_llm_cache_path": "graph/outputs/llm_cache/yelpzip_llm_abnormal_patterns.jsonl",
+  "source_llm_review_features_path": "graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620/llm_mask/llm_review_features.csv",
+  "reviews_csv_sha256": "4e02f762e1a452d26ca3765503da03fae9c0e535907561a95cee5fca1cbe86b4",
+  "llm_cache_sha256": "f266b55f4b1a05e9eac31a588e9b5ca0c45bd8f685fbaa9c5bec8a20d126638b",
+  "llm_review_features_sha256": "f4469b713fb5da27a38c3f95d9e028d475aae7f619033be551137e793ef3f6fc",
+  "num_reviews": 39667,
+  "num_users": 6664,
+  "num_fake_users": 3332,
+  "num_real_users": 3332,
+  "num_fake_reviews": 14834,
+  "num_real_reviews": 24833,
+  "matched_cache_reviews": 39667,
+  "overall_mask_hit_reviews": 25033,
+  "overall_mask_hit_rate": 0.6310787304308367,
+  "overall_avg_pattern_count": 1.0366047344139966,
+  "overall_llm_error_rate": 0.0,
+  "fake_mask_hit_rate": 0.6328030200889848,
+  "real_mask_hit_rate": 0.6300487254862481,
+  "fake_user_any_mask_hit_rate": 0.9699879951980792,
+  "real_user_any_mask_hit_rate": 0.9771908763505402,
+  "fake_avg_reviews_per_user": 4.451980792316927,
+  "real_avg_reviews_per_user": 7.452881152460985,
+  "top_pattern_types": [
+    {
+      "pattern_type": "exaggeration",
+      "count_all": 21213,
+      "count_fake": 7931,
+      "count_real": 13282,
+      "positive_rate_all_reviews": 0.5347770186805153,
+      "positive_rate_fake_reviews": 0.534650128084131,
+      "positive_rate_real_reviews": 0.5348528168163331
+    },
+    {
+      "pattern_type": "lack_of_detail",
+      "count_all": 8107,
+      "count_fake": 2998,
+      "count_real": 5109,
+      "positive_rate_all_reviews": 0.20437643381148057,
+      "positive_rate_fake_reviews": 0.20210327625724686,
+      "positive_rate_real_reviews": 0.2057343051584585
+    },
+    {
+      "pattern_type": "inconsistent_claim",
+      "count_all": 3369,
+      "count_fake": 1262,
+      "count_real": 2107,
+      "positive_rate_all_reviews": 0.08493205939445887,
+      "positive_rate_fake_reviews": 0.08507482809761359,
+      "positive_rate_real_reviews": 0.08484677646679821
+    },
+    {
+      "pattern_type": "overly_absolute",
+      "count_all": 2943,
+      "count_fake": 1106,
+      "count_real": 1837,
+      "positive_rate_all_reviews": 0.07419265384324501,
+      "positive_rate_fake_reviews": 0.07455844681137927,
+      "positive_rate_real_reviews": 0.07397414730399066
+    },
+    {
+      "pattern_type": "template_like",
+      "count_all": 2460,
+      "count_fake": 921,
+      "count_real": 1539,
+      "positive_rate_all_reviews": 0.06201628557743212,
+      "positive_rate_fake_reviews": 0.0620870972091142,
+      "positive_rate_real_reviews": 0.06197398622800306
+    },
+    {
+      "pattern_type": "generic_promotion",
+      "count_all": 1681,
+      "count_fake": 617,
+      "count_real": 1064,
+      "positive_rate_all_reviews": 0.042377795144578616,
+      "positive_rate_fake_reviews": 0.041593636241067815,
+      "positive_rate_real_reviews": 0.04284621270084162
+    },
+    {
+      "pattern_type": "sentiment_rating_mismatch",
+      "count_all": 1333,
+      "count_fake": 488,
+      "count_real": 845,
+      "positive_rate_all_reviews": 0.033604759623868705,
+      "positive_rate_fake_reviews": 0.03289739786975866,
+      "positive_rate_real_reviews": 0.03402730237989772
+    },
+    {
+      "pattern_type": "generic_attack",
+      "count_all": 13,
+      "count_fake": 6,
+      "count_real": 7,
+      "positive_rate_all_reviews": 0.0003277283384173242,
+      "positive_rate_fake_reviews": 0.00040447620331670486,
+      "positive_rate_real_reviews": 0.00028188297829501066
+    }
+  ],
+  "notes": [
+    "This package evaluates llm_mask quality on the actual D1/base balanced sampled reviews by joining the sampled review ids with the global llm_cache JSONL.",
+    "Balanced protocol here means balanced users, not balanced review counts.",
+    "This package is lightweight and excludes the large llm_cache JSONL itself and abnormal_token_masks.npy."
+  ]
+}

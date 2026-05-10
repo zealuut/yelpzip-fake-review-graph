@@ -1,0 +1,3 @@
+label,num_users,avg_reviews_per_user,users_with_any_mask_hit,user_any_mask_hit_rate,avg_mask_hit_reviews_per_user,avg_pattern_count_per_user
+fake,3332,4.451980792316927,3232,0.9699879951980792,2.8172268907563027,1.0339492165599862
+real,3332,7.452881152460985,3256,0.9771908763505402,4.695678271308523,1.038345309367416

@@ -1,0 +1,1152 @@
+[
+  {
+    "review_node_id":1,
+    "user_id":5058,
+    "review_label":0,
+    "split":"val",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.398,
+    "template_score":0.665,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.26,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"upwards of $4 for a small",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"This is not a grilled cheese with turkey sausage; this is a fucking abomination",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":2,
+    "user_id":5099,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"O-M-G",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":3,
+    "user_id":5121,
+    "review_label":0,
+    "split":"val",
+    "num_abnormal_patterns":2,
+    "sentiment":"neutral",
+    "specificity_score":0.444,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"I've been here a handful of times but only eaten there twice",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"Their service leaves something to be desired though",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":4,
+    "user_id":5132,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Absolutely nothing to complain about",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":5,
+    "user_id":5133,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.42,
+    "template_score":0.95,
+    "exaggeration_score":0.765,
+    "experience_detail_score":0.45,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"generic_promotion",
+        "description":"generic promotional praise",
+        "evidence_span":"better hear than all of the options in the area",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"pretty darn tasty too",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":8,
+    "user_id":5159,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.458,
+    "template_score":0.56,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.335,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"pretty good",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"But it's kind of expensive and although it's pretty good it's not great",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":9,
+    "user_id":5160,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"negative",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"Really didn't see any vegan items on the menu. Soy milk wasn't even listed as an option on the board.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":10,
+    "user_id":5161,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.772,
+    "template_score":0.0,
+    "exaggeration_score":0.9,
+    "experience_detail_score":0.73,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"The Toast of town!",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":11,
+    "user_id":5201,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"I would give toast 3.5 stars, but it is not an option, so I'll round up to 4.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":12,
+    "user_id":5203,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"The hummus wrap looked delightful, but sadly, I wasn't hungry enough when I stopped in.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":17,
+    "user_id":5268,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.446,
+    "template_score":0.56,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.325,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"WTF SURLY BARISTA?",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"I don't know shit about green tea!",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":21,
+    "user_id":5286,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.5475,
+    "template_score":0.95,
+    "exaggeration_score":0.57,
+    "experience_detail_score":0.535,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"generic_promotion",
+        "description":"generic promotional praise",
+        "evidence_span":"My favorite Café to study in...also my favorite green tea and eggs benny toast",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":22,
+    "user_id":5291,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"The coffee is fine. The hot line is a nice change from most of the Philly cafes, but I didn't like their basic egg sandwich---it was quite dry. Service was slow, but their was only one barista working.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":26,
+    "user_id":5413,
+    "review_label":0,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.778,
+    "template_score":0.0,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.82,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"I've seen their food menu but haven't tried anything yet",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":31,
+    "user_id":5487,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.637,
+    "template_score":0.0,
+    "exaggeration_score":0.9,
+    "experience_detail_score":0.64,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"fresh and succulent",
+        "confidence":0.9
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"Toast it is for any brunch occasion",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":33,
+    "user_id":5500,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.778,
+    "template_score":0.0,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.735,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"You won't find some of the basics: eggs your way, pancakes... you know what I mean.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":34,
+    "user_id":5530,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.631,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.635,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"It doesn't get better than having a hearty but healthy breakfast with a mimosa",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"You heard me free mimosa!!!",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":36,
+    "user_id":5535,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"mixed",
+    "specificity_score":0.418,
+    "template_score":0.63,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.285,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"excellent option for brunch or lunch",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"Too bad their air ventilation is poor: every time we went (i.e. dozens) after 45 minutes in the café, our eyes would start itching. And after 60 mins we would have to leave, at which point we would both be smelling like we cooked in their kitchen for a couple of hours.",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":38,
+    "user_id":5621,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"YOLO, I'm kind of glad you only live once",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":41,
+    "user_id":5681,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.778,
+    "template_score":0.0,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.735,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"little did we know what a great time we would have",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":44,
+    "user_id":5787,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":2,
+    "sentiment":"neutral",
+    "specificity_score":0.432,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"like everything was a bit too much trouble",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"sentiment_rating_mismatch",
+        "description":"sentiment and rating mismatch",
+        "evidence_span":"Rating: 3.0",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":47,
+    "user_id":5793,
+    "review_label":0,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"they're pretty slow",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":48,
+    "user_id":5797,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"This time someone got it just right",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":49,
+    "user_id":5803,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.446,
+    "template_score":0.56,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.325,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"tastes like R&L frozen crap",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"the food will . it tastes like R&L frozen crap",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":51,
+    "user_id":5815,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.511,
+    "template_score":0.85,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.538,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"HORRIBLE SERVICE!!!!!",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"template_like",
+        "description":"template-like wording",
+        "evidence_span":"We were immediatly seated & told our server would be right with us.We waited almost 10min.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":54,
+    "user_id":5842,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"neutral",
+    "specificity_score":0.432,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"The food is not edible, except for the pizza",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"I don't love this bar. But it is the closest place to my apartment",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":55,
+    "user_id":5846,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.682,
+    "template_score":0.0,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.735,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"everyone walking in could qualify for medicare",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"if you are in your 20-30s, just go somewhere else. We sit down and at this point, I am praying the food to be good",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":60,
+    "user_id":5876,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.426,
+    "template_score":0.595,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.3,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"Zero stars",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"no redeeming qualities whatsoever",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":61,
+    "user_id":5877,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":3,
+    "sentiment":"negative",
+    "specificity_score":0.376,
+    "template_score":0.85,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.448,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"worst 'restaurant' food I ever had in my life",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"NEVER go back to this place",
+        "confidence":0.9
+      },
+      {
+        "pattern_type":"template_like",
+        "description":"template-like wording",
+        "evidence_span":"avoid it like the plague",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":64,
+    "user_id":5928,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.631,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.635,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"surpasses the quality of Moe's",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"to die for",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":65,
+    "user_id":5949,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.79,
+    "template_score":0.0,
+    "exaggeration_score":0.75,
+    "experience_detail_score":0.745,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"by far",
+        "confidence":0.75
+      }
+    ]
+  },
+  {
+    "review_node_id":70,
+    "user_id":5967,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"For cheap mexican, there's nothing better",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":71,
+    "user_id":5981,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"For $5, you can get one HUGE burrito. It does take away any hunger",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":72,
+    "user_id":5984,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.682,
+    "template_score":0.0,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.735,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Loved the value of this over-stuffed burrito",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"I like a messy Burrito where all the sour cream and guac and pico comes squirting out with each bite",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":74,
+    "user_id":5989,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.772,
+    "template_score":0.0,
+    "exaggeration_score":0.9,
+    "experience_detail_score":0.73,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"you can't do better",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":75,
+    "user_id":5991,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"negative",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"I got the enchiladas with the mole. They were pretty awful. The mole was totally tasteless, which was better than the taste of the tortillas used. The chicken was acceptably cooked, but the rice and beans just lacked flavor.",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":77,
+    "user_id":6000,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.646,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.645,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Cabbage is the best addition to a burrito EVER",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"its still awesome",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":78,
+    "user_id":6001,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.558,
+    "template_score":0.92,
+    "exaggeration_score":0.552,
+    "experience_detail_score":0.544,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"generic_promotion",
+        "description":"generic promotional praise",
+        "evidence_span":"Best burritos in town",
+        "confidence":0.92
+      }
+    ]
+  },
+  {
+    "review_node_id":81,
+    "user_id":6007,
+    "review_label":1,
+    "split":"test",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.526,
+    "template_score":0.8,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.549,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Runs circles around the crappy excuse for Mexican at Fresh Taco on Elm St.",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"template_like",
+        "description":"template-like wording",
+        "evidence_span":"Fast, inexpensive, delicious, and authentic Mexican",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":84,
+    "user_id":6014,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.625,
+    "template_score":0.85,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.633,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"template_like",
+        "description":"template-like wording",
+        "evidence_span":"Ranks right up there with Lao Szechuan in Milford\/Orange",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":85,
+    "user_id":6015,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.625,
+    "template_score":0.85,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.633,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"template_like",
+        "description":"template-like wording",
+        "evidence_span":"What a good choice!",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":86,
+    "user_id":6019,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.631,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.635,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"AMAZING!!!",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"overly_absolute",
+        "description":"absolute claim",
+        "evidence_span":"Hands down the best asian restaraunt in New Haven county",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":88,
+    "user_id":6023,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"positive",
+    "specificity_score":0.772,
+    "template_score":0.0,
+    "exaggeration_score":0.9,
+    "experience_detail_score":0.73,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"really good and",
+        "confidence":0.9
+      },
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"over the best rolls",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":89,
+    "user_id":6024,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"neutral",
+    "specificity_score":0.432,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"it was okay",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"inconsistent_claim",
+        "description":"internally inconsistent claim",
+        "evidence_span":"Their seaweed salad is gross, though",
+        "confidence":0.9
+      }
+    ]
+  },
+  {
+    "review_node_id":90,
+    "user_id":6026,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"best I've ever had",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":91,
+    "user_id":6033,
+    "review_label":1,
+    "split":"val",
+    "num_abnormal_patterns":1,
+    "sentiment":"positive",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Talking about great Taiwanese home-cooked meals!!",
+        "confidence":0.95
+      }
+    ]
+  },
+  {
+    "review_node_id":93,
+    "user_id":6049,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.54,
+    "template_score":0.595,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.395,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"one of the better Sushi places",
+        "confidence":0.85
+      }
+    ]
+  },
+  {
+    "review_node_id":95,
+    "user_id":6065,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"neutral",
+    "specificity_score":0.766,
+    "template_score":0.0,
+    "exaggeration_score":0.95,
+    "experience_detail_score":0.725,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"was totally impressed",
+        "confidence":0.95
+      },
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"Freshover flavorful",
+        "confidence":0.75
+      }
+    ]
+  },
+  {
+    "review_node_id":96,
+    "user_id":6066,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":1,
+    "sentiment":"neutral",
+    "specificity_score":0.56,
+    "template_score":0.56,
+    "exaggeration_score":0.0,
+    "experience_detail_score":0.42,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"Those noodles were pretty good",
+        "confidence":0.8
+      }
+    ]
+  },
+  {
+    "review_node_id":98,
+    "user_id":6070,
+    "review_label":1,
+    "split":"train",
+    "num_abnormal_patterns":2,
+    "sentiment":"negative",
+    "specificity_score":0.478,
+    "template_score":0.525,
+    "exaggeration_score":0.85,
+    "experience_detail_score":0.36,
+    "abnormal_patterns":[
+      {
+        "pattern_type":"exaggeration",
+        "description":"exaggerated wording",
+        "evidence_span":"excellent Taiwanese dishes",
+        "confidence":0.85
+      },
+      {
+        "pattern_type":"lack_of_detail",
+        "description":"lack of concrete experience detail",
+        "evidence_span":"all-you-can-eat sushi places, such as Sushi Palace or Sushi X",
+        "confidence":0.75
+      }
+    ]
+  }
+]
