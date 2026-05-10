@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 import torch
 
 from graph.llm_utils import numeric_feature_columns
@@ -11,6 +12,7 @@ from graph.review_training import build_review_dataloaders, build_tokenizer
 
 from .export_user_features_routeL import assert_aux_not_exported, export_review_feature_frame
 from .review_training_routeL import (
+    build_mask_profile_frame,
     build_routeL_dataloaders,
     build_routeL_model,
     compute_pos_weight,
@@ -21,6 +23,8 @@ from .routeL_utils import ensure_dir, json_dump, load_d1_bundle, load_yaml_confi
 
 
 def _load_model_from_d1(bundle, cfg):
+    mask_profile_mode = str(cfg.get("MASK_SIGNAL_MODE", "token_pool"))
+    mask_profile_frame = build_mask_profile_frame(bundle.base_dir) if mask_profile_mode == "calibrated_profile" else None
     model = build_routeL_model(
         primary_model_name_or_path=bundle.run_config["primary_model_name_or_path"],
         numeric_feature_dim=len(numeric_feature_columns()),
@@ -33,25 +37,34 @@ def _load_model_from_d1(bundle, cfg):
         anomaly_warmup_ratio=float(cfg.get("ANOMALY_WARMUP_RATIO", 0.3)),
         lambda_aux=float(cfg.get("lambda_aux", 0.2)),
         model_variant=str(cfg.get("MODEL_VARIANT", "single_tower")),
+        mask_signal_mode=mask_profile_mode,
+        mask_profile_dim=(len([c for c in mask_profile_frame.columns if c not in {"review_node_id", "review_label", "split"}]) if mask_profile_frame is not None else 0),
     )
     state = torch.load(bundle.base_dir / "review_encoder/best_review_encoder.pt", map_location="cpu")
     model.load_state_dict(state, strict=False)
     model.eval()
-    return model
+    return model, mask_profile_frame
 
 
 def _first_batch(dataloaders):
     return next(iter(dataloaders["train"]))
 
 
-def _run_variant(model, batch, lambda_aux, pos_weight_value, warmup_active=False):
+def _run_variant(model, batch, lambda_aux, pos_weight_value, warmup_active=False, mask_profile_frame=None):
     with torch.no_grad():
+        mask_profile_tensor = None
+        if mask_profile_frame is not None:
+            review_ids = batch["review_id"].detach().cpu().numpy().astype(np.int64)
+            sub = mask_profile_frame.loc[review_ids]
+            mask_profile_cols = [c for c in sub.columns if c not in {"review_node_id", "review_label", "split"}]
+            mask_profile_tensor = torch.tensor(sub[mask_profile_cols].to_numpy(dtype=np.float32))
         outputs = model(
             input_ids=batch["input_ids"],
             attention_mask=batch["attention_mask"],
             abnormal_token_mask=batch["abnormal_mask"],
             numeric_features=batch["numeric_features"],
             warmup_active=warmup_active,
+            mask_profile_features=mask_profile_tensor,
         )
         losses = compute_routeL_losses(
             outputs,
@@ -96,7 +109,7 @@ def main() -> None:
 
     for cfg_path in config_files:
         cfg = load_yaml_config(cfg_path)
-        model = _load_model_from_d1(bundle, cfg)
+        model, mask_profile_frame = _load_model_from_d1(bundle, cfg)
         warmup_active = bool(cfg.get("FUSION_MODE", "early").lower() == "late")
         batch["use_label_filtered_mask"] = bool(int(cfg.get("USE_LABEL_FILTERED_MASK", 0)))
         batch["lambda_mask_align"] = float(cfg.get("lambda_mask_align", 0.0))
@@ -106,6 +119,7 @@ def main() -> None:
             lambda_aux=float(cfg.get("lambda_aux", 0.0)),
             pos_weight_value=pos_weight_value,
             warmup_active=warmup_active,
+            mask_profile_frame=mask_profile_frame,
         )
         shape_rows.append(
             {

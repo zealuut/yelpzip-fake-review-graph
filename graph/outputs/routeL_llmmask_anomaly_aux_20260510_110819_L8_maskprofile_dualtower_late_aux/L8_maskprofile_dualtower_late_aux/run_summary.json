@@ -1,0 +1,23 @@
+{
+  "experiment_name": "L8_maskprofile_dualtower_late_aux",
+  "fusion_mode": "late",
+  "use_aux_loss": true,
+  "lambda_aux": 0.2,
+  "warmup_ratio": 0.3,
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "4f16da59de0beadd716c22be1d7e3ef511866c4ecee9dbbe28e19dcf5f256cde",
+  "review_auc": 0.7513902684275712,
+  "review_ap": 0.6106068945124405,
+  "review_f1": 0.6115450562011812,
+  "review_recall": 0.6858974358974359,
+  "review_precision": 0.5517359917497422,
+  "graph_auc": 0.8086983494759367,
+  "graph_ap": 0.7963320064780816,
+  "graph_f1": 0.7469725940089229,
+  "graph_recall": 0.8785607196401799,
+  "graph_precision": 0.6496674057649667,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.07672502845525742,
+  "notes": ""
+}

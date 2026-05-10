@@ -1,0 +1,7 @@
+FUSION_MODE: late
+USE_ANOMALY_AUX_LOSS: 1
+ANOMALY_WARMUP_RATIO: 0.3
+lambda_aux: 0.2
+MODEL_VARIANT: dual_tower
+MASK_SIGNAL_MODE: calibrated_profile
+

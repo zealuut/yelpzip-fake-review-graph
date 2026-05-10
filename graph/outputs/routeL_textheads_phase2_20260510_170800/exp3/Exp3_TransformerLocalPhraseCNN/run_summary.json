@@ -1,0 +1,19 @@
+{
+  "experiment_name": "Exp3_TransformerLocalPhraseCNN",
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "2a90e77c20b17162ac4497a97b0493d2f887b848ec7602f2cb5c83bd0808aae4",
+  "review_auc": 0.753942466083786,
+  "review_ap": 0.6144155159912945,
+  "review_f1": 0.5825902335456475,
+  "review_recall": 0.5863247863247864,
+  "review_precision": 0.5789029535864979,
+  "graph_auc": 0.8306768654653183,
+  "graph_ap": 0.8162674671730592,
+  "graph_f1": 0.7601935038009675,
+  "graph_recall": 0.8245877061469266,
+  "graph_precision": 0.7051282051282052,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.31271207332611084,
+  "notes": ""
+}

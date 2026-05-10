@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
+from sklearn.linear_model import LogisticRegression
 
 from graph.llm_utils import numeric_feature_columns
 from graph.review_training import build_review_dataloaders, build_tokenizer
@@ -41,6 +42,80 @@ def build_routeL_dataloaders(
     )
 
 
+def _extract_calibrated_mask_features(review_df: pd.DataFrame, cache_df: pd.DataFrame, abnormal_masks: np.ndarray) -> pd.DataFrame:
+    cache_df = cache_df.sort_values("review_node_id").drop_duplicates("review_node_id", keep="last").copy()
+    review_df = review_df.sort_values("review_node_id").reset_index(drop=True).copy()
+    merged = review_df[["review_node_id", "review_label", "split"]].merge(
+        cache_df,
+        on="review_node_id",
+        how="left",
+        validate="one_to_one",
+    )
+
+    def _patterns(x):
+        return x if isinstance(x, list) else []
+
+    def _count(x):
+        return len(_patterns(x))
+
+    def _top1(x):
+        vals = [float(item.get("confidence", 0.0) or 0.0) for item in _patterns(x) if isinstance(item, dict)]
+        return max(vals) if vals else 0.0
+
+    def _topk_mean(x, k=3):
+        vals = sorted([float(item.get("confidence", 0.0) or 0.0) for item in _patterns(x) if isinstance(item, dict)], reverse=True)
+        return float(np.mean(vals[:k])) if vals else 0.0
+
+    merged["span_count"] = merged["abnormal_patterns"].apply(_count).astype(np.float32)
+    merged["has_mask"] = (merged["span_count"] > 0).astype(np.float32)
+    merged["sum_mask_score"] = merged["span_count"].astype(np.float32)
+    merged["mean_mask_score"] = np.where(merged["span_count"] > 0, 1.0, 0.0).astype(np.float32)
+    merged["top1_span_score"] = merged["abnormal_patterns"].apply(_top1).astype(np.float32)
+    merged["topk_mask_score"] = merged["abnormal_patterns"].apply(_topk_mean).astype(np.float32)
+    merged["mask_token_count"] = abnormal_masks.sum(axis=1).astype(np.float32)
+    merged["mask_token_ratio"] = (merged["mask_token_count"] / abnormal_masks.shape[1]).astype(np.float32)
+    merged["specificity_score"] = pd.to_numeric(merged.get("specificity_score", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+    merged["template_score"] = pd.to_numeric(merged.get("template_score", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+    merged["exaggeration_score"] = pd.to_numeric(merged.get("exaggeration_score", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+    merged["detail_score"] = pd.to_numeric(merged.get("experience_detail_score", 0.0), errors="coerce").fillna(0.0).astype(np.float32)
+    merged["interaction_exaggeration_x_has_mask"] = (merged["exaggeration_score"] * merged["has_mask"]).astype(np.float32)
+    merged["interaction_top1_x_ratio"] = (merged["top1_span_score"] * merged["mask_token_ratio"]).astype(np.float32)
+    return merged
+
+
+def build_mask_profile_frame(base_dir: str | Path) -> pd.DataFrame:
+    review_df, _, abnormal_masks = load_routeL_review_frames(base_dir)
+    base_dir = Path(base_dir)
+    cache_path = base_dir.parent / "llm_cache/yelpzip_llm_abnormal_patterns.jsonl"
+    cache_df = pd.read_json(str(cache_path), lines=True)
+    merged = _extract_calibrated_mask_features(review_df=review_df, cache_df=cache_df, abnormal_masks=abnormal_masks)
+    feature_cols = [
+        "has_mask",
+        "sum_mask_score",
+        "mean_mask_score",
+        "top1_span_score",
+        "topk_mask_score",
+        "mask_token_ratio",
+        "specificity_score",
+        "template_score",
+        "exaggeration_score",
+        "detail_score",
+        "span_count",
+        "interaction_exaggeration_x_has_mask",
+        "interaction_top1_x_ratio",
+    ]
+    X_train = merged.loc[merged["split"] == "train", feature_cols].astype(np.float32).to_numpy()
+    y_train = merged.loc[merged["split"] == "train", "review_label"].astype(int).to_numpy()
+    calibrator = LogisticRegression(max_iter=2000, solver="liblinear", random_state=42)
+    calibrator.fit(X_train, y_train)
+    merged["p_mask_fake"] = calibrator.predict_proba(merged[feature_cols].astype(np.float32).to_numpy())[:, 1].astype(np.float32)
+    ordered_cols = ["review_node_id", "review_label", "split", "p_mask_fake"] + feature_cols
+    out = merged[ordered_cols].copy()
+    out = out.sort_values("review_node_id").reset_index(drop=True)
+    out = out.set_index("review_node_id", drop=False)
+    return out
+
+
 def build_routeL_model(
     primary_model_name_or_path: str,
     numeric_feature_dim: int,
@@ -53,6 +128,8 @@ def build_routeL_model(
     anomaly_warmup_ratio: float,
     lambda_aux: float,
     model_variant: str = "single_tower",
+    mask_signal_mode: str = "token_pool",
+    mask_profile_dim: int = 0,
 ) -> RouteLLMMaskedLogicEncoder:
     del use_anomaly_aux_loss, anomaly_warmup_ratio, lambda_aux
     return RouteLLMMaskedLogicEncoder(
@@ -64,6 +141,8 @@ def build_routeL_model(
         freeze_secondary=freeze_secondary,
         fusion_mode=fusion_mode,
         model_variant=model_variant,
+        mask_signal_mode=mask_signal_mode,
+        mask_profile_dim=mask_profile_dim,
     )
 
 
@@ -119,6 +198,7 @@ def _run_epoch(
     warmup_active: bool,
     use_label_filtered_mask: bool = False,
     lambda_mask_align: float = 0.0,
+    mask_profile_frame: pd.DataFrame | None = None,
 ) -> tuple[float, np.ndarray, np.ndarray, np.ndarray]:
     losses: list[float] = []
     all_labels: list[np.ndarray] = []
@@ -134,12 +214,19 @@ def _run_epoch(
         labels = batch["label"].to(device)
 
         with torch.set_grad_enabled(training):
+            mask_profile_tensor = None
+            if mask_profile_frame is not None:
+                row_ids = batch["review_id"].detach().cpu().numpy().astype(np.int64)
+                sub = mask_profile_frame.loc[row_ids]
+                mask_profile_cols = [c for c in sub.columns if c not in {"review_node_id", "review_label", "split"}]
+                mask_profile_tensor = torch.tensor(sub[mask_profile_cols].to_numpy(dtype=np.float32), device=device)
             outputs = model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 abnormal_token_mask=abnormal_mask,
                 numeric_features=numeric_features,
                 warmup_active=warmup_active,
+                mask_profile_features=mask_profile_tensor,
             )
             loss_parts = compute_routeL_losses(
                 outputs=outputs,
@@ -183,6 +270,7 @@ def train_routeL_review_encoder(
     anomaly_warmup_ratio: float,
     use_label_filtered_mask: bool = False,
     lambda_mask_align: float = 0.0,
+    mask_profile_frame: pd.DataFrame | None = None,
 ) -> tuple[Path, Path, pd.DataFrame]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -213,6 +301,7 @@ def train_routeL_review_encoder(
             warmup_active=warmup_active,
             use_label_filtered_mask=use_label_filtered_mask,
             lambda_mask_align=lambda_mask_align,
+            mask_profile_frame=mask_profile_frame,
         )
         val_loss, val_y, val_prob, val_aux_prob = _run_epoch(
             model=model,
@@ -224,6 +313,7 @@ def train_routeL_review_encoder(
             warmup_active=warmup_active,
             use_label_filtered_mask=use_label_filtered_mask,
             lambda_mask_align=lambda_mask_align,
+            mask_profile_frame=mask_profile_frame,
         )
         train_metrics = compute_binary_metrics(train_y, train_prob)
         val_metrics = compute_binary_metrics(val_y, val_prob)
@@ -270,6 +360,7 @@ def encode_routeL_all_reviews(
     device: torch.device,
     fusion_mode: str,
     anomaly_warmup_ratio: float,
+    mask_profile_frame: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     del metrics_path
     model.load_state_dict(torch.load(checkpoint_path, map_location=device), strict=False)
@@ -284,12 +375,18 @@ def encode_routeL_all_reviews(
             review_ids = batch["review_id"].cpu().numpy()
             # Export final inference-time representations; late-fusion warmup must be disabled here.
             warmup_active = False
+            mask_profile_tensor = None
+            if mask_profile_frame is not None:
+                sub = mask_profile_frame.loc[review_ids.astype(np.int64)]
+                mask_profile_cols = [c for c in sub.columns if c not in {"review_node_id", "review_label", "split"}]
+                mask_profile_tensor = torch.tensor(sub[mask_profile_cols].to_numpy(dtype=np.float32), device=device)
             outputs = model(
                 input_ids=batch["input_ids"].to(device),
                 attention_mask=batch["attention_mask"].to(device),
                 abnormal_token_mask=batch["abnormal_mask"].to(device),
                 numeric_features=batch["numeric_features"].to(device),
                 warmup_active=warmup_active,
+                mask_profile_features=mask_profile_tensor,
             )
             probs = torch.sigmoid(outputs.review_logit).cpu().numpy()
             aux_probs = torch.sigmoid(outputs.aux_logit).cpu().numpy()

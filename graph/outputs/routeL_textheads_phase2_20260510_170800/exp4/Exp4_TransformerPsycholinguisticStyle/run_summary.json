@@ -1,0 +1,19 @@
+{
+  "experiment_name": "Exp4_TransformerPsycholinguisticStyle",
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "d3ef7c87092d3285a831c6d879f0ea182e2590472d8a9d5e4d3da51e4dfb0e6c",
+  "review_auc": 0.7586464375201821,
+  "review_ap": 0.6215010775975777,
+  "review_f1": 0.6017883135787065,
+  "review_recall": 0.6183760683760684,
+  "review_precision": 0.5860672336978534,
+  "graph_auc": 0.835754536524841,
+  "graph_ap": 0.8344195844300739,
+  "graph_f1": 0.7572383073496659,
+  "graph_recall": 0.7646176911544228,
+  "graph_precision": 0.75,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.4792526364326477,
+  "notes": ""
+}

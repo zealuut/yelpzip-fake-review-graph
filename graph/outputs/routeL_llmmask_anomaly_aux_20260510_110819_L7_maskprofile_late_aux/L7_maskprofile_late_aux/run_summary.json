@@ -1,0 +1,23 @@
+{
+  "experiment_name": "L7_maskprofile_late_aux",
+  "fusion_mode": "late",
+  "use_aux_loss": true,
+  "lambda_aux": 0.2,
+  "warmup_ratio": 0.3,
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "9a6362bb572cabe0f10aaed5f30b474e83bde4b498d2dec47b1d1cce5acf6253",
+  "review_auc": 0.7562623903011277,
+  "review_ap": 0.6167048922156477,
+  "review_f1": 0.6151851851851852,
+  "review_recall": 0.7098290598290599,
+  "review_precision": 0.5428104575163398,
+  "graph_auc": 0.8129173793912639,
+  "graph_ap": 0.8007690107054444,
+  "graph_f1": 0.7510148849797023,
+  "graph_recall": 0.8320839580209896,
+  "graph_precision": 0.6843403205918619,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.17800328135490417,
+  "notes": ""
+}

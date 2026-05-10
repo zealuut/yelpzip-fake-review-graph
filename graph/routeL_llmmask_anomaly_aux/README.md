@@ -1,9 +1,9 @@
-# Route L llmmask anomaly/aux
+# Route L isolated text-anomaly sandbox
 
-Isolated Route L sandbox for LLM-mask anomaly fusion and auxiliary-loss checks.
+Isolated Route L sandbox for end-to-end text anomaly head experiments under the D1 graph protocol.
 
 Scope:
 - no changes to main experiment code
-- no training in phase 1 dry-run
-- reuse D1 artifacts only for sanity checks
-
+- all Route L model/training/export logic stays in this directory
+- D1 assets are reused only as protocol/artifact inputs
+- each experiment retrains its own text head, re-exports review/user vectors, rebuilds graph inputs, then runs the same EGAT protocol

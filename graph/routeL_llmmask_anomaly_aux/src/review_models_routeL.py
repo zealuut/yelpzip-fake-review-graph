@@ -89,12 +89,15 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
         freeze_secondary: bool = False,
         fusion_mode: str = "early",
         model_variant: str = "single_tower",
+        mask_signal_mode: str = "token_pool",
+        mask_profile_dim: int = 0,
     ) -> None:
         super().__init__()
         if AutoModel is None:
             raise ImportError("transformers is required for RouteLLMMaskedLogicEncoder")
         self.fusion_mode = str(fusion_mode).lower()
         self.model_variant = str(model_variant).lower()
+        self.mask_signal_mode = str(mask_signal_mode).lower()
         self.primary = AutoModel.from_pretrained(primary_model_name_or_path)
         self.hidden_size = int(self.primary.config.hidden_size)
         self.logic_hidden = max(self.hidden_size // 2, 128)
@@ -140,6 +143,27 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(32, 1),
         )
+        self.mask_profile_dim = int(mask_profile_dim)
+        self.mask_profile_proj = None
+        self.mask_profile_context_proj = None
+        self.mask_profile_gate_proj = None
+        if self.mask_signal_mode == "calibrated_profile":
+            if self.mask_profile_dim <= 0:
+                raise ValueError("mask_profile_dim must be > 0 when mask_signal_mode=calibrated_profile")
+            self.mask_profile_proj = nn.Sequential(
+                nn.Linear(self.mask_profile_dim, self.hidden_size),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
+            self.mask_profile_context_proj = nn.Sequential(
+                nn.Linear(self.mask_profile_dim, self.hidden_size),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
+            self.mask_profile_gate_proj = nn.Sequential(
+                nn.Linear(self.mask_profile_dim, 3),
+                nn.Tanh(),
+            )
         self.dual_merge_gate = nn.Sequential(
             nn.Linear(vector_dim * 2 + self.hidden_size // 2, vector_dim),
             nn.ReLU(),
@@ -189,6 +213,7 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
         abnormal_token_mask: torch.Tensor,
         numeric_features: torch.Tensor,
         warmup_active: bool = False,
+        mask_profile_features: torch.Tensor | None = None,
     ):
         primary_out = self.primary(input_ids=input_ids, attention_mask=attention_mask)
         token_states = primary_out.last_hidden_state
@@ -196,30 +221,39 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
         if cls_state is None:
             cls_state = token_states[:, 0]
 
-        soft_mask = abnormal_token_mask.float() * attention_mask.float()
-        fallback_rows = soft_mask.sum(dim=1, keepdim=True) <= 0
-        if fallback_rows.any():
-            soft_mask = soft_mask.clone()
-            soft_mask[fallback_rows.squeeze(-1)] = attention_mask[fallback_rows.squeeze(-1)].float()
+        if self.mask_signal_mode == "calibrated_profile":
+            if mask_profile_features is None:
+                raise ValueError("mask_profile_features is required for calibrated_profile mode")
+            mask_profile_features = mask_profile_features.float()
+            logic_query = self.mask_profile_proj(mask_profile_features)
+            cross_context = self.mask_profile_context_proj(mask_profile_features)
+            gate_stats = self.mask_profile_gate_proj(mask_profile_features)
+            logic_token_weights = torch.zeros_like(attention_mask.float())
+        else:
+            soft_mask = abnormal_token_mask.float() * attention_mask.float()
+            fallback_rows = soft_mask.sum(dim=1, keepdim=True) <= 0
+            if fallback_rows.any():
+                soft_mask = soft_mask.clone()
+                soft_mask[fallback_rows.squeeze(-1)] = attention_mask[fallback_rows.squeeze(-1)].float()
 
-        masked_states = token_states * soft_mask.unsqueeze(-1)
-        logic_states, _ = self.logic_bilstm(masked_states)
-        logic_pooled, logic_token_weights = self.logic_pool(logic_states, soft_mask > 0, return_weights=True)
-        logic_query = logic_pooled
-        logic_query = self.logic_proj(logic_query)
-        cross_context = self.cross_attn(
-            logic_query.unsqueeze(1), token_states, token_states, padding_mask=attention_mask == 0
-        ).squeeze(1)
+            masked_states = token_states * soft_mask.unsqueeze(-1)
+            logic_states, _ = self.logic_bilstm(masked_states)
+            logic_pooled, logic_token_weights = self.logic_pool(logic_states, soft_mask > 0, return_weights=True)
+            logic_query = logic_pooled
+            logic_query = self.logic_proj(logic_query)
+            cross_context = self.cross_attn(
+                logic_query.unsqueeze(1), token_states, token_states, padding_mask=attention_mask == 0
+            ).squeeze(1)
+            gate_stats = torch.cat(
+                [
+                    soft_mask.mean(dim=1, keepdim=True),
+                    soft_mask.max(dim=1, keepdim=True).values,
+                    attention_mask.float().mean(dim=1, keepdim=True),
+                ],
+                dim=-1,
+            )
 
-        gate_inputs = torch.cat(
-            [
-                numeric_features,
-                soft_mask.mean(dim=1, keepdim=True),
-                soft_mask.max(dim=1, keepdim=True).values,
-                attention_mask.float().mean(dim=1, keepdim=True),
-            ],
-            dim=-1,
-        )
+        gate_inputs = torch.cat([numeric_features, gate_stats], dim=-1)
         gate = torch.sigmoid(self.gate_mlp(gate_inputs))
         numeric_proj = self.numeric_proj(numeric_features)
         gated_cross = gate * cross_context

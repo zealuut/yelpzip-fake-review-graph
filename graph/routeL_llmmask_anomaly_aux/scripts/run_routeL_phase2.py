@@ -25,6 +25,7 @@ from graph.routeL_llmmask_anomaly_aux.src.export_user_features_routeL import (
     export_review_feature_frame,
 )
 from graph.routeL_llmmask_anomaly_aux.src.review_training_routeL import (
+    build_mask_profile_frame,
     build_routeL_dataloaders,
     build_routeL_model,
     encode_routeL_all_reviews,
@@ -244,11 +245,13 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         "model_variant": str(cfg.get("MODEL_VARIANT", "single_tower")),
         "use_label_filtered_mask": bool(int(cfg.get("USE_LABEL_FILTERED_MASK", 0))),
         "lambda_mask_align": float(cfg.get("lambda_mask_align", 0.0)),
+        "mask_signal_mode": str(cfg.get("MASK_SIGNAL_MODE", "token_pool")),
     }
     json_dump(exp_dir / "config.json", run_config)
     json_dump(exp_dir / "review_encoder_config.json", run_config)
 
     review_df, llm_feature_df, _ = load_routeL_review_frames(bundle.base_dir)
+    mask_profile_frame = build_mask_profile_frame(bundle.base_dir) if run_config["mask_signal_mode"] == "calibrated_profile" else None
     dataloaders = build_routeL_dataloaders(
         base_dir=bundle.base_dir,
         primary_model_name_or_path=bundle.run_config["primary_model_name_or_path"],
@@ -267,6 +270,8 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         anomaly_warmup_ratio=run_config["anomaly_warmup_ratio"],
         lambda_aux=run_config["lambda_aux"],
         model_variant=run_config["model_variant"],
+        mask_signal_mode=run_config["mask_signal_mode"],
+        mask_profile_dim=(len([c for c in mask_profile_frame.columns if c not in {"review_node_id", "review_label", "split"}]) if mask_profile_frame is not None else 0),
     )
     ckpt_path, review_metrics_csv, review_epoch_df = train_routeL_review_encoder(
         model=model,
@@ -281,6 +286,7 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         anomaly_warmup_ratio=run_config["anomaly_warmup_ratio"],
         use_label_filtered_mask=run_config["use_label_filtered_mask"],
         lambda_mask_align=run_config["lambda_mask_align"],
+        mask_profile_frame=mask_profile_frame,
     )
     (exp_dir / "review_encoder_train.log").write_text("review encoder training completed\n", encoding="utf-8")
 
@@ -293,6 +299,7 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         device=device,
         fusion_mode=run_config["fusion_mode"],
         anomaly_warmup_ratio=run_config["anomaly_warmup_ratio"],
+        mask_profile_frame=mask_profile_frame,
     )
     export_frame = export_review_feature_frame(review_output_df, review_vectors, text_vectors, review_encoder_dir)
     if not assert_aux_not_exported(export_frame):

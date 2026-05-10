@@ -1,0 +1,4 @@
+EXPERIMENT_KIND: exp1_learned_token_evidence
+LAMBDA_EVIDENCE: 0.0
+LAMBDA_SPARSE: 0.0
+TOPK_TOKENS: 8
