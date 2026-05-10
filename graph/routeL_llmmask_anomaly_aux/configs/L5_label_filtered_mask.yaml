@@ -1,0 +1,8 @@
+FUSION_MODE: late
+USE_ANOMALY_AUX_LOSS: 1
+ANOMALY_WARMUP_RATIO: 0.3
+lambda_aux: 0.2
+MODEL_VARIANT: single_tower
+USE_LABEL_FILTERED_MASK: 1
+lambda_mask_align: 0.1
+

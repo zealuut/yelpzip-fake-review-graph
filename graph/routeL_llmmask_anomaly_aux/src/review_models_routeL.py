@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -19,6 +20,7 @@ class RouteLReviewEncoderOutput:
     aux_logit: torch.Tensor
     text_vector: torch.Tensor
     gate: torch.Tensor
+    mask_token_weights: torch.Tensor
 
 
 class SafeCrossAttention(nn.Module):
@@ -59,12 +61,20 @@ class AttentionPool(nn.Module):
             nn.Linear(hidden_size, 1),
         )
 
-    def forward(self, hidden_states: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        mask: torch.Tensor,
+        return_weights: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         scores = self.scorer(hidden_states).squeeze(-1)
         scores = scores.masked_fill(~mask.bool(), -1e9)
         weights = F.softmax(scores, dim=-1)
         weights = torch.nan_to_num(weights, nan=0.0, posinf=0.0, neginf=0.0)
-        return torch.bmm(weights.unsqueeze(1), hidden_states).squeeze(1)
+        pooled = torch.bmm(weights.unsqueeze(1), hidden_states).squeeze(1)
+        if return_weights:
+            return pooled, weights
+        return pooled
 
 
 class RouteLLMMaskedLogicEncoder(nn.Module):
@@ -78,11 +88,13 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
         freeze_primary: bool = False,
         freeze_secondary: bool = False,
         fusion_mode: str = "early",
+        model_variant: str = "single_tower",
     ) -> None:
         super().__init__()
         if AutoModel is None:
             raise ImportError("transformers is required for RouteLLMMaskedLogicEncoder")
         self.fusion_mode = str(fusion_mode).lower()
+        self.model_variant = str(model_variant).lower()
         self.primary = AutoModel.from_pretrained(primary_model_name_or_path)
         self.hidden_size = int(self.primary.config.hidden_size)
         self.logic_hidden = max(self.hidden_size // 2, 128)
@@ -128,6 +140,12 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(32, 1),
         )
+        self.dual_merge_gate = nn.Sequential(
+            nn.Linear(vector_dim * 2 + self.hidden_size // 2, vector_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(vector_dim, 1),
+        )
         fusion_dim = self.hidden_size * 3 + self.hidden_size // 2
         if self.secondary_proj is not None:
             fusion_dim += self.hidden_size
@@ -143,12 +161,26 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
             nn.Tanh(),
         )
         self.review_classifier = nn.Linear(vector_dim, 1)
+        self.normal_tower = nn.Sequential(
+            nn.Linear(self.hidden_size + self.hidden_size // 2, self.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(self.hidden_size, vector_dim),
+        )
+        self.anomaly_tower = nn.Sequential(
+            nn.Linear(self.hidden_size * 2, self.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(self.hidden_size, vector_dim),
+        )
+        self.dual_vector_norm = nn.LayerNorm(vector_dim)
         self.aux_proj = nn.Sequential(
             nn.Linear(self.hidden_size * 2, self.hidden_size),
             nn.ReLU(),
             nn.Dropout(dropout),
         )
         self.aux_classifier = nn.Linear(self.hidden_size, 1)
+        self.aux_classifier_dual = nn.Linear(vector_dim, 1)
 
     def forward(
         self,
@@ -172,7 +204,8 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
 
         masked_states = token_states * soft_mask.unsqueeze(-1)
         logic_states, _ = self.logic_bilstm(masked_states)
-        logic_query = self.logic_pool(logic_states, soft_mask > 0)
+        logic_pooled, logic_token_weights = self.logic_pool(logic_states, soft_mask > 0, return_weights=True)
+        logic_query = logic_pooled
         logic_query = self.logic_proj(logic_query)
         cross_context = self.cross_attn(
             logic_query.unsqueeze(1), token_states, token_states, padding_mask=attention_mask == 0
@@ -191,9 +224,6 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
         numeric_proj = self.numeric_proj(numeric_features)
         gated_cross = gate * cross_context
 
-        aux_repr = self.aux_proj(torch.cat([logic_query, gated_cross], dim=-1))
-        aux_logit = self.aux_classifier(aux_repr).squeeze(-1)
-
         if self.fusion_mode == "late" and warmup_active:
             logic_query_for_main = torch.zeros_like(logic_query)
             gated_cross_for_main = torch.zeros_like(gated_cross)
@@ -201,23 +231,37 @@ class RouteLLMMaskedLogicEncoder(nn.Module):
             logic_query_for_main = logic_query
             gated_cross_for_main = gated_cross
 
-        fusion_parts = [cls_state, logic_query_for_main, gated_cross_for_main, numeric_proj]
-        if self.secondary is not None and self.secondary_proj is not None:
-            secondary_out = self.secondary(input_ids=input_ids, attention_mask=attention_mask)
-            secondary_cls = getattr(secondary_out, "pooler_output", None)
-            if secondary_cls is None:
-                secondary_cls = secondary_out.last_hidden_state[:, 0]
-            fusion_parts.append(self.secondary_proj(secondary_cls))
+        if self.model_variant == "dual_tower":
+            normal_repr = self.normal_tower(torch.cat([cls_state, numeric_proj], dim=-1))
+            anomaly_repr = self.anomaly_tower(torch.cat([logic_query_for_main, gated_cross_for_main], dim=-1))
+            merge_gate = torch.sigmoid(
+                self.dual_merge_gate(torch.cat([normal_repr, anomaly_repr, numeric_proj], dim=-1))
+            )
+            review_vector = self.dual_vector_norm(normal_repr + merge_gate * anomaly_repr)
+            review_logit = self.review_classifier(review_vector).squeeze(-1)
+            aux_logit = self.aux_classifier_dual(anomaly_repr).squeeze(-1)
+            gate_out = merge_gate.squeeze(-1)
+        else:
+            aux_repr = self.aux_proj(torch.cat([logic_query, gated_cross], dim=-1))
+            aux_logit = self.aux_classifier(aux_repr).squeeze(-1)
+            fusion_parts = [cls_state, logic_query_for_main, gated_cross_for_main, numeric_proj]
+            if self.secondary is not None and self.secondary_proj is not None:
+                secondary_out = self.secondary(input_ids=input_ids, attention_mask=attention_mask)
+                secondary_cls = getattr(secondary_out, "pooler_output", None)
+                if secondary_cls is None:
+                    secondary_cls = secondary_out.last_hidden_state[:, 0]
+                fusion_parts.append(self.secondary_proj(secondary_cls))
 
-        review_vector = self.review_fusion(torch.cat(fusion_parts, dim=-1))
-        review_vector = self.vector_norm(review_vector)
-        review_logit = self.review_classifier(review_vector).squeeze(-1)
+            review_vector = self.review_fusion(torch.cat(fusion_parts, dim=-1))
+            review_vector = self.vector_norm(review_vector)
+            review_logit = self.review_classifier(review_vector).squeeze(-1)
+            gate_out = gate.squeeze(-1)
         text_vector = self.text_vector_mlp(cls_state)
         return RouteLReviewEncoderOutput(
             review_vector=review_vector,
             review_logit=review_logit,
             aux_logit=aux_logit,
             text_vector=text_vector,
-            gate=gate.squeeze(-1),
+            gate=gate_out,
+            mask_token_weights=logic_token_weights,
         )
-

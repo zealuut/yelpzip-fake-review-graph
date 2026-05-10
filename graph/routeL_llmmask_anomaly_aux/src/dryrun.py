@@ -32,6 +32,7 @@ def _load_model_from_d1(bundle, cfg):
         use_anomaly_aux_loss=bool(int(cfg.get("USE_ANOMALY_AUX_LOSS", 0))),
         anomaly_warmup_ratio=float(cfg.get("ANOMALY_WARMUP_RATIO", 0.3)),
         lambda_aux=float(cfg.get("lambda_aux", 0.2)),
+        model_variant=str(cfg.get("MODEL_VARIANT", "single_tower")),
     )
     state = torch.load(bundle.base_dir / "review_encoder/best_review_encoder.pt", map_location="cpu")
     model.load_state_dict(state, strict=False)
@@ -52,7 +53,15 @@ def _run_variant(model, batch, lambda_aux, pos_weight_value, warmup_active=False
             numeric_features=batch["numeric_features"],
             warmup_active=warmup_active,
         )
-        losses = compute_routeL_losses(outputs, batch["label"], pos_weight_value=pos_weight_value, lambda_aux=lambda_aux)
+        losses = compute_routeL_losses(
+            outputs,
+            batch["label"],
+            pos_weight_value=pos_weight_value,
+            lambda_aux=lambda_aux,
+            abnormal_mask=batch["abnormal_mask"],
+            use_label_filtered_mask=bool(batch.get("use_label_filtered_mask", False)),
+            lambda_mask_align=float(batch.get("lambda_mask_align", 0.0)),
+        )
     return outputs, losses
 
 
@@ -69,12 +78,13 @@ def main() -> None:
     config_files = sorted(Path(args.configs_dir).glob("*.yaml"))
 
     review_df, llm_feature_df, abnormal_masks = load_routeL_review_frames(bundle.base_dir)
+    max_seq_length = int(abnormal_masks.shape[1]) if getattr(abnormal_masks, "ndim", 0) == 2 else int(args.max_seq_length)
     dataloaders = build_review_dataloaders(
         review_df=review_df,
         llm_feature_df=llm_feature_df,
         abnormal_masks=abnormal_masks,
-        tokenizer=build_tokenizer("llm_masked_logic", bundle.run_config["primary_model_name_or_path"], args.max_seq_length),
-        max_seq_length=args.max_seq_length,
+        tokenizer=build_tokenizer("llm_masked_logic", bundle.run_config["primary_model_name_or_path"], max_seq_length),
+        max_seq_length=max_seq_length,
         batch_size=args.batch_size,
     )
     batch = _first_batch(dataloaders)
@@ -88,6 +98,8 @@ def main() -> None:
         cfg = load_yaml_config(cfg_path)
         model = _load_model_from_d1(bundle, cfg)
         warmup_active = bool(cfg.get("FUSION_MODE", "early").lower() == "late")
+        batch["use_label_filtered_mask"] = bool(int(cfg.get("USE_LABEL_FILTERED_MASK", 0)))
+        batch["lambda_mask_align"] = float(cfg.get("lambda_mask_align", 0.0))
         outputs, losses = _run_variant(
             model,
             batch,
@@ -106,6 +118,7 @@ def main() -> None:
                 "aux_logit_shape": list(outputs.aux_logit.shape),
                 "text_vector_shape": list(outputs.text_vector.shape),
                 "gate_shape": list(outputs.gate.shape),
+                "mask_token_weights_shape": list(outputs.mask_token_weights.shape),
                 "warmup_active": warmup_active,
                 "aux_exported": False,
             }
@@ -117,9 +130,11 @@ def main() -> None:
                 "use_anomaly_aux_loss": int(cfg.get("USE_ANOMALY_AUX_LOSS", 0)),
                 "main_loss": float(losses["main_loss"].detach().cpu()),
                 "aux_loss": float(losses["aux_loss"].detach().cpu()),
+                "mask_align_loss": float(losses["mask_align_loss"].detach().cpu()),
                 "total_loss": float(losses["total_loss"].detach().cpu()),
                 "main_loss_finite": bool(torch.isfinite(losses["main_loss"])),
                 "aux_loss_finite": bool(torch.isfinite(losses["aux_loss"])),
+                "mask_align_loss_finite": bool(torch.isfinite(losses["mask_align_loss"])),
                 "total_loss_finite": bool(torch.isfinite(losses["total_loss"])),
             }
         )
@@ -185,4 +200,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,0 +1,23 @@
+{
+  "experiment_name": "L6_DualTower_LabelFilteredMask",
+  "fusion_mode": "late",
+  "use_aux_loss": true,
+  "lambda_aux": 0.2,
+  "warmup_ratio": 0.3,
+  "review_encoder": "llm_masked_logic",
+  "feature_dim": 256,
+  "feature_hash": "422af9efb76593a8c344bed712c924e196fa61c9f1e33249e20929ef0ea61e37",
+  "review_auc": 0.7494756731126889,
+  "review_ap": 0.614207112370703,
+  "review_f1": 0.623120452708165,
+  "review_recall": 0.8235042735042735,
+  "review_precision": 0.5011703511053316,
+  "graph_auc": 0.8368761646163425,
+  "graph_ap": 0.8233826171871437,
+  "graph_f1": 0.7741935483870968,
+  "graph_recall": 0.863568215892054,
+  "graph_precision": 0.7015834348355664,
+  "graph_best_epoch": 0,
+  "graph_threshold": 0.26526299118995667,
+  "notes": ""
+}

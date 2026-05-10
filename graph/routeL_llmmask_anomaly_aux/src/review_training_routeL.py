@@ -52,6 +52,7 @@ def build_routeL_model(
     use_anomaly_aux_loss: bool,
     anomaly_warmup_ratio: float,
     lambda_aux: float,
+    model_variant: str = "single_tower",
 ) -> RouteLLMMaskedLogicEncoder:
     del use_anomaly_aux_loss, anomaly_warmup_ratio, lambda_aux
     return RouteLLMMaskedLogicEncoder(
@@ -62,6 +63,7 @@ def build_routeL_model(
         freeze_primary=freeze_primary,
         freeze_secondary=freeze_secondary,
         fusion_mode=fusion_mode,
+        model_variant=model_variant,
     )
 
 
@@ -70,12 +72,31 @@ def compute_routeL_losses(
     labels: torch.Tensor,
     pos_weight_value: float,
     lambda_aux: float,
+    abnormal_mask: torch.Tensor | None = None,
+    use_label_filtered_mask: bool = False,
+    lambda_mask_align: float = 0.0,
 ) -> dict[str, torch.Tensor]:
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight_value, device=labels.device))
     main_loss = criterion(outputs.review_logit, labels)
     aux_loss = criterion(outputs.aux_logit, labels)
-    total = main_loss + float(lambda_aux) * aux_loss
-    return {"main_loss": main_loss, "aux_loss": aux_loss, "total_loss": total}
+    mask_align_loss = torch.zeros((), device=labels.device, dtype=main_loss.dtype)
+    if use_label_filtered_mask and abnormal_mask is not None and float(lambda_mask_align) > 0.0:
+        token_mask = abnormal_mask.float()
+        row_has_mask = token_mask.sum(dim=1) > 0
+        fake_mask_rows = (labels > 0.5) & row_has_mask
+        if fake_mask_rows.any():
+            weights = outputs.mask_token_weights[fake_mask_rows]
+            targets = token_mask[fake_mask_rows]
+            target_sum = targets.sum(dim=1, keepdim=True).clamp_min(1.0)
+            targets = targets / target_sum
+            mask_align_loss = -(targets * torch.log(weights.clamp_min(1e-8))).sum(dim=1).mean()
+    total = main_loss + float(lambda_aux) * aux_loss + float(lambda_mask_align) * mask_align_loss
+    return {
+        "main_loss": main_loss,
+        "aux_loss": aux_loss,
+        "mask_align_loss": mask_align_loss,
+        "total_loss": total,
+    }
 
 
 def compute_pos_weight(train_loader: Any, device: torch.device) -> float:
@@ -96,6 +117,8 @@ def _run_epoch(
     pos_weight_value: float,
     lambda_aux: float,
     warmup_active: bool,
+    use_label_filtered_mask: bool = False,
+    lambda_mask_align: float = 0.0,
 ) -> tuple[float, np.ndarray, np.ndarray, np.ndarray]:
     losses: list[float] = []
     all_labels: list[np.ndarray] = []
@@ -103,8 +126,6 @@ def _run_epoch(
     all_aux_probs: list[np.ndarray] = []
     training = optimizer is not None
     model.train(training)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight_value, device=device))
-
     for batch in dataloader:
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
@@ -120,9 +141,16 @@ def _run_epoch(
                 numeric_features=numeric_features,
                 warmup_active=warmup_active,
             )
-            main_loss = criterion(outputs.review_logit, labels)
-            aux_loss = criterion(outputs.aux_logit, labels)
-            loss = main_loss + float(lambda_aux) * aux_loss
+            loss_parts = compute_routeL_losses(
+                outputs=outputs,
+                labels=labels,
+                pos_weight_value=pos_weight_value,
+                lambda_aux=lambda_aux,
+                abnormal_mask=abnormal_mask,
+                use_label_filtered_mask=use_label_filtered_mask,
+                lambda_mask_align=lambda_mask_align,
+            )
+            loss = loss_parts["total_loss"]
             if training:
                 optimizer.zero_grad()
                 loss.backward()
@@ -153,6 +181,8 @@ def train_routeL_review_encoder(
     lambda_aux: float,
     fusion_mode: str,
     anomaly_warmup_ratio: float,
+    use_label_filtered_mask: bool = False,
+    lambda_mask_align: float = 0.0,
 ) -> tuple[Path, Path, pd.DataFrame]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +211,8 @@ def train_routeL_review_encoder(
             pos_weight_value=pos_weight_value,
             lambda_aux=lambda_aux,
             warmup_active=warmup_active,
+            use_label_filtered_mask=use_label_filtered_mask,
+            lambda_mask_align=lambda_mask_align,
         )
         val_loss, val_y, val_prob, val_aux_prob = _run_epoch(
             model=model,
@@ -190,6 +222,8 @@ def train_routeL_review_encoder(
             pos_weight_value=pos_weight_value,
             lambda_aux=lambda_aux,
             warmup_active=warmup_active,
+            use_label_filtered_mask=use_label_filtered_mask,
+            lambda_mask_align=lambda_mask_align,
         )
         train_metrics = compute_binary_metrics(train_y, train_prob)
         val_metrics = compute_binary_metrics(val_y, val_prob)

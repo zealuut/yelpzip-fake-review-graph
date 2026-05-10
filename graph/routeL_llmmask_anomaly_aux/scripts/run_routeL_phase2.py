@@ -199,6 +199,8 @@ def _experiment_name_from_cfg(path: Path) -> str:
         "L2_early_aux": "L2_EarlyFusion_Aux",
         "L3_late_noaux": "L3_LateFusion_NoAux",
         "L4_late_aux": "L4_LateFusion_Aux",
+        "L5_label_filtered_mask": "L5_LabelFilteredMask",
+        "L6_dualtower_label_filtered_mask": "L6_DualTower_LabelFilteredMask",
     }
     return mapping.get(path.stem, path.stem)
 
@@ -239,6 +241,9 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         "d1_base_dir": str(bundle.base_dir),
         "is_strict_d1_feature": True,
         "user_pooling_method": "D1_default_build_review_and_user_artifacts",
+        "model_variant": str(cfg.get("MODEL_VARIANT", "single_tower")),
+        "use_label_filtered_mask": bool(int(cfg.get("USE_LABEL_FILTERED_MASK", 0))),
+        "lambda_mask_align": float(cfg.get("lambda_mask_align", 0.0)),
     }
     json_dump(exp_dir / "config.json", run_config)
     json_dump(exp_dir / "review_encoder_config.json", run_config)
@@ -261,6 +266,7 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         use_anomaly_aux_loss=run_config["use_anomaly_aux_loss"],
         anomaly_warmup_ratio=run_config["anomaly_warmup_ratio"],
         lambda_aux=run_config["lambda_aux"],
+        model_variant=run_config["model_variant"],
     )
     ckpt_path, review_metrics_csv, review_epoch_df = train_routeL_review_encoder(
         model=model,
@@ -273,6 +279,8 @@ def run_single(cfg_path: Path, output_root: Path, seed: int = 42) -> dict[str, A
         lambda_aux=run_config["lambda_aux"],
         fusion_mode=run_config["fusion_mode"],
         anomaly_warmup_ratio=run_config["anomaly_warmup_ratio"],
+        use_label_filtered_mask=run_config["use_label_filtered_mask"],
+        lambda_mask_align=run_config["lambda_mask_align"],
     )
     (exp_dir / "review_encoder_train.log").write_text("review encoder training completed\n", encoding="utf-8")
 
@@ -451,6 +459,8 @@ def main() -> None:
         config_dir / "L2_early_aux.yaml",
         config_dir / "L3_late_noaux.yaml",
         config_dir / "L4_late_aux.yaml",
+        config_dir / "L5_label_filtered_mask.yaml",
+        config_dir / "L6_dualtower_label_filtered_mask.yaml",
     ]
     cfg_paths = [Path(p) for p in args.config_paths] if args.config_paths else default_cfg_paths
     summaries = []
