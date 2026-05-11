@@ -1,0 +1,19 @@
+{
+  "experiment_name": "TNS-A1_TNSBasicNodeProfile",
+  "delta_days": 3,
+  "session_threshold": 3,
+  "num_events": 4834,
+  "num_groups": 719,
+  "num_users_with_tns": 1320,
+  "avg_groups_per_user": 0.37695078031212487,
+  "feature_dim_before": 288,
+  "feature_dim_after": 301,
+  "AUC": 0.8487825052990747,
+  "AP": 0.8445875294450964,
+  "F1": 0.7700258397932817,
+  "Recall": 0.8935532233883059,
+  "Precision": 0.6765039727582293,
+  "best_epoch": "UNKNOWN_FROM_CORE",
+  "threshold": 0.2094695270061493,
+  "notes": "D1 base graph fixed; TNS profile appended to node feature only."
+}

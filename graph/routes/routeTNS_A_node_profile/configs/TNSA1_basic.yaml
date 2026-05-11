@@ -1,0 +1,7 @@
+experiment_name: TNS-A1_TNSBasicNodeProfile
+delta_days: 3
+session_threshold_days: 3
+min_group_size: 3
+max_group_duration_days: 3
+use_tns_node_profile: true
+seed: 42
