@@ -1,0 +1,35 @@
+{
+  "branch": "ce6a9d6-governance",
+  "base_commit": "ce6a9d6",
+  "core_candidates": [
+    "graph/data_utils.py",
+    "graph/graph_pipeline.py",
+    "graph/relation_model.py",
+    "graph/review_models.py",
+    "graph/review_training.py",
+    "graph/run_final_experiment.py",
+    "graph/scripts/route_runner.py"
+  ],
+  "post_d1_route_specific_or_extended_files": [
+    "graph/graph_pipeline.py",
+    "graph/relation_model.py",
+    "graph/run_all.env.sh",
+    "graph/scripts/route_runner.py",
+    "graph/scripts/routek_runner.py",
+    "graph/scripts/routek_d1main_rns_runner.py",
+    "graph/scripts/run_routeK_adaptive_topk.sh",
+    "graph/scripts/run_routeK_d1main_rns_topk.sh",
+    "graph/scripts/run_routeD_tns_confirmed_logic_egat_v2.sh",
+    "graph/scripts/run_routeD_tns_heavy_logic.sh",
+    "graph/scripts/build_tns_heavy_features.py",
+    "graph/routeL_llmmask_anomaly_aux/",
+    "graph/baseline_comparison/"
+  ],
+  "governance_rules": {
+    "core_imports_route": false,
+    "route_imports_core": true,
+    "core_default_behavior_must_remain_backward_compatible": true,
+    "new_behavior_requires_explicit_flag": true,
+    "d1_smoke_test_required_for_core_changes": true
+  }
+}
