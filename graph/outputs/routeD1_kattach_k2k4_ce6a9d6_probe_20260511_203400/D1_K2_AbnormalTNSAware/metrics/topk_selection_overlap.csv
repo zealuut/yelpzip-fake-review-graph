@@ -1,0 +1,5 @@
+relation,candidate_topM,final_k,overlap_with_K0_top20,new_edges_ratio,dropped_edges_ratio
+UPU,20,20,1.0,0.0,0.0
+UTU,20,20,0.9997452897907517,0.00025471020924829616,0.00025471020924829616
+USU,20,20,1.0,0.0,0.0
+LogicAE_CB,20,20,1.0,0.0,0.0
