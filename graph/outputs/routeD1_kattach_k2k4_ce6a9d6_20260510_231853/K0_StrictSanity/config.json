@@ -1,0 +1,5 @@
+{
+  "base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+  "reference_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB",
+  "implementation": "ce6a9d6"
+}

@@ -1,0 +1,29 @@
+{
+  "best_graph_model": {
+    "review_encoder": "llm_masked_logic",
+    "model_name": "current_egat_edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "threshold": 0.4797460436820984,
+    "val_auc": 0.8386491557223265,
+    "val_ap": 0.8359271683908127,
+    "auc": 0.8539141223990705,
+    "ap": 0.8558814476573307,
+    "recall": 0.7916041979010495,
+    "precision": 0.7553648068669528,
+    "f1": 0.7730600292825769,
+    "accuracy": 0.767616191904048,
+    "num_train_users": 4264,
+    "num_val_users": 1066,
+    "num_test_users": 1334,
+    "num_fake_train": 2132,
+    "num_fake_val": 533,
+    "num_fake_test": 667,
+    "backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "use_abnormal_edge_weight": false,
+    "use_abnormal_gate": false,
+    "use_abnormal_value_gate": false,
+    "use_abnormal_attention_bias": false,
+    "abnormal_score_source": "auto"
+  }
+}

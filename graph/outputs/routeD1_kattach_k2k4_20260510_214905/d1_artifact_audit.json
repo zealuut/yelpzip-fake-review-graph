@@ -1,0 +1,64 @@
+{
+  "base_source": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+  "reference_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB",
+  "is_strict_d1_artifact": true,
+  "feature_path": "build_self_feature_matrix(user_scores_enriched.csv, logic_vectors/user_abnormal_vectors.npy) via load_protocol_bundle()",
+  "feature_shape": [
+    6664,
+    288
+  ],
+  "feature_hash": "0c70d6cf32f711febdaab20349248358cb4ba401509ee9a280f2b9212c483f47",
+  "split_hash": {
+    "train": "ea11c7720406b95521674cbdfee07af23ee5a790c4b668758a83d799cba4a042",
+    "val": "8c535a4a1d36232146cb41154c0e08130f2e20cf0bd5ebaec63c5f0a5978190f",
+    "test": "f5bc4d2e55277e8ba4bc0db2d4582e36c9671449aefcf6ec19aa3af99f75c796"
+  },
+  "label_hash": "ebabcac559fc6b76f75d8f945a7ed7d02cb1db662243fbf26e5be6da8bec7889",
+  "relation_edge_counts": {
+    "UPU": 129868,
+    "UTU": 129559,
+    "USU": 133280,
+    "LogicAE_CB": 105264
+  },
+  "edge_weight_hashes": {
+    "UPU": "f4804db0a0c891047957f3670651815c8a3ed64723b7063a725cb399cb194152",
+    "UTU": "94ca68d82cb89d8ff86e3794d0678c10de1183aabcb30172258e41254855cda8",
+    "USU": "ac33edd4f9fb89ef089d71d23d700dad2c9e929dd02e5dbb5f7cd92140e21148",
+    "LogicAE_CB": "d45db3be37d0692d9d228ea4c18c6788f06ad8b238e74bcb9bc63d95530cab43"
+  },
+  "d1_model_config": {
+    "review_encoder": "llm_masked_logic",
+    "backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "seed": 42,
+    "run_config": {
+      "route": "D",
+      "experiment_name": "D1_EGAT_Base_LogicAE_CB",
+      "output_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB",
+      "base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+      "graph_mode": "current",
+      "edge_set": "Base_LogicAE_CB",
+      "model_backbone": "current_egat",
+      "relation_model": "edge_aware_gat",
+      "relation_topk": null,
+      "use_abnormal_edge_weight": false,
+      "use_abnormal_gate": false,
+      "use_abnormal_value_gate": false,
+      "use_abnormal_attention_bias": false,
+      "abnormal_edge_lambda": 1.0,
+      "abnormal_edge_eta": 0.5,
+      "abnormal_gate_eta": 0.5,
+      "abnormal_pair_mode": "both_high",
+      "abnormal_gate_learnable": false,
+      "abnormal_attention_gamma": 1.0,
+      "abnormal_score_source": "auto",
+      "use_tns_guided_logic": false,
+      "tns_phi_days": 5,
+      "tns_logic_mode": "boost",
+      "tns_logic_lambda": 1.0,
+      "logic_tns_topk": 20,
+      "use_node_gat": false,
+      "seed": 42
+    }
+  }
+}
