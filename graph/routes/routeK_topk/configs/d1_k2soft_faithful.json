@@ -1,0 +1,35 @@
+{
+  "description": "Faithful D1 K2-soft line. Keep the D1 edge topology exactly fixed and only change soft edge weights for K1/K2.",
+  "base_source": "D1_EGAT_Base_LogicAE_CB",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "review_encoder": "llm_masked_logic",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "seed": 42,
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "tns_phi_days": 5,
+  "abnormal_score_source": "auto",
+  "variants": [
+    {
+      "experiment_name": "D1_K0_OriginalWeight",
+      "strategy": "K0_original_d1_weight",
+      "soft_mode": "fixed_original",
+      "notes": "Exact D1 edge files and exact original D1 edge_weight."
+    },
+    {
+      "experiment_name": "D1_K1_AbnormalSoftWeight",
+      "strategy": "K1_abnormal_soft_weight",
+      "soft_mode": "abnormal_soft",
+      "notes": "Exact D1 edge files; edge_weight = D1 edge_weight * (1 + alpha * abnormal_pair)."
+    },
+    {
+      "experiment_name": "D1_K2_AbnormalTNSSoftWeight",
+      "strategy": "K2_abnormal_tns_soft_weight",
+      "soft_mode": "abnormal_tns_soft",
+      "notes": "Exact D1 edge files; edge_weight additionally uses TNS and abnormal*TNS interaction."
+    }
+  ]
+}

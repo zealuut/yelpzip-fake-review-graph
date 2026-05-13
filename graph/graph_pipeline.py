@@ -32,6 +32,7 @@ DEFAULT_GRAPH_SUPPORT_BETAS = {
 DEFAULT_LOGIC_THRESHOLD_MODE = "quantile"
 DEFAULT_LOGIC_THRESHOLD_QUANTILE = 0.60
 DEFAULT_LOGIC_THRESHOLD_VALUE = 0.30
+TNS_HEAVY_CACHE_VERSION = "v2_sparse_safe"
 
 
 def _empty_edge_frame(extra_columns: list[str] | None = None) -> pd.DataFrame:
@@ -57,6 +58,34 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
     if not np.isfinite(numeric):
         return float(default)
     return float(numeric)
+
+
+def _normalize_user_id_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (np.integer, int)):
+        return str(int(value))
+    if isinstance(value, (np.floating, float)):
+        if not np.isfinite(value):
+            return ""
+        if float(value).is_integer():
+            return str(int(value))
+        return str(value)
+    text = str(value).strip()
+    if not text:
+        return ""
+    if re.fullmatch(r"-?\d+(?:\.0+)?", text):
+        try:
+            return str(int(float(text)))
+        except Exception:
+            return text
+    return text
+
+
+def _undirected_pair_key(src_user_id: Any, dst_user_id: Any) -> str:
+    lhs = _normalize_user_id_value(src_user_id)
+    rhs = _normalize_user_id_value(dst_user_id)
+    return f"{min(lhs, rhs)}|||{max(lhs, rhs)}"
 
 
 def _as_string_set(value: Any) -> set[str]:
@@ -929,6 +958,377 @@ def _build_temporal_event_features(
             }
         )
     return pd.DataFrame(rows, columns=columns)
+
+
+def _tns_heavy_cache_dir(phi_days: int) -> Path:
+    cache_dir = Path(__file__).resolve().parent / "outputs" / "cache" / f"tns_heavy_features_phi{int(phi_days)}_{TNS_HEAVY_CACHE_VERSION}"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+def _minmax_normalize(values: pd.Series) -> tuple[pd.Series, dict[str, float]]:
+    numeric = pd.to_numeric(values, errors="coerce").fillna(0.0).astype(float)
+    min_value = float(numeric.min()) if not numeric.empty else 0.0
+    max_value = float(numeric.max()) if not numeric.empty else 0.0
+    if max_value - min_value <= 1e-8:
+        normalized = pd.Series(np.zeros(len(numeric), dtype=np.float32), index=numeric.index)
+    else:
+        normalized = ((numeric - min_value) / (max_value - min_value)).clip(0.0, 1.0).astype(np.float32)
+    return normalized, {"min": min_value, "max": max_value}
+
+
+def _build_tns_heavy_feature_cache(
+    logic_edges: pd.DataFrame,
+    review_features: pd.DataFrame | None,
+    user_df: pd.DataFrame,
+    user_abnormal_vectors: np.ndarray,
+    phi_days: int,
+) -> dict[str, Any]:
+    cache_dir = _tns_heavy_cache_dir(phi_days)
+    pair_path = cache_dir / "pair_tns_heavy_features.csv"
+    session_path = cache_dir / "session_features.csv"
+    config_path = cache_dir / "tns_feature_config.json"
+    stats_path = cache_dir / "tns_feature_stats.json"
+
+    if pair_path.exists() and session_path.exists() and config_path.exists() and stats_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        expected_edge_count = int(len(logic_edges) if logic_edges is not None else 0)
+        cache_matches = int(config.get("phi_days", -1)) == int(phi_days) and int(config.get("logic_candidate_edges", -1)) == expected_edge_count
+        if cache_matches:
+            pair_df = pd.read_csv(pair_path)
+            session_df = pd.read_csv(session_path)
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            return {
+                "cache_dir": cache_dir,
+                "pair_df": pair_df,
+                "session_df": session_df,
+                "config": config,
+                "stats": stats,
+                "pair_path": pair_path,
+                "session_path": session_path,
+                "config_path": config_path,
+                "stats_path": stats_path,
+            }
+
+    columns = [
+        "src_user_id",
+        "dst_user_id",
+        "logic_score",
+        "same_burst_session_count",
+        "pair_repeated_temporal_contacts",
+        "min_time_gap_days",
+        "mean_time_gap_days",
+        "temporal_closeness",
+        "max_session_group_size",
+        "mean_session_group_size",
+        "max_session_density",
+        "mean_session_density",
+        "max_session_fake_prior",
+        "mean_session_fake_prior",
+        "max_session_logic_consistency",
+        "mean_session_logic_consistency",
+        "repeated_group_count",
+        "group_jaccard_overlap_max",
+        "group_jaccard_overlap_mean",
+    ]
+    if logic_edges is None or logic_edges.empty or review_features is None or review_features.empty:
+        pair_df = pd.DataFrame(columns=columns)
+        session_df = pd.DataFrame(
+            columns=[
+                "session_id",
+                "product_id",
+                "start_time",
+                "end_time",
+                "duration_days",
+                "session_size",
+                "session_review_count",
+                "session_density",
+                "session_unique_products",
+                "session_rating_mean",
+                "session_rating_std",
+                "session_extreme_rating_ratio",
+                "session_rating_deviation_mean",
+                "session_fake_prior_mean",
+                "session_fake_prior_max",
+                "session_fake_prior_topk_mean",
+                "session_logic_consistency",
+                "member_count",
+            ]
+        )
+        config = {
+            "phi_days": int(phi_days),
+            "logic_candidate_edges": int(len(logic_edges) if logic_edges is not None else 0),
+            "pair_feature_count": 0,
+            "session_count": 0,
+        }
+        stats = {"normalization": {}, "notes": "empty_tns_heavy_cache"}
+        pair_df.to_csv(pair_path, index=False)
+        session_df.to_csv(session_path, index=False)
+        config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+        stats_path.write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding="utf-8")
+        return {
+            "cache_dir": cache_dir,
+            "pair_df": pair_df,
+            "session_df": session_df,
+            "config": config,
+            "stats": stats,
+            "pair_path": pair_path,
+            "session_path": session_path,
+            "config_path": config_path,
+            "stats_path": stats_path,
+        }
+
+    logic_frame = logic_edges.copy()
+    candidate_logic_scores: dict[tuple[str, str], float] = {}
+    candidate_neighbors: dict[str, set[str]] = defaultdict(set)
+    for row in logic_frame.itertuples(index=False):
+        src_user_id = _normalize_user_id_value(row.src_user_id)
+        dst_user_id = _normalize_user_id_value(row.dst_user_id)
+        key = tuple(sorted((src_user_id, dst_user_id)))
+        score = _safe_float(getattr(row, "S_logic", getattr(row, "edge_weight", 0.0)))
+        candidate_logic_scores[key] = max(candidate_logic_scores.get(key, 0.0), score)
+        candidate_neighbors[src_user_id].add(dst_user_id)
+        candidate_neighbors[dst_user_id].add(src_user_id)
+
+    work = review_features.copy()
+    work["user_id"] = work["user_id"].apply(_normalize_user_id_value)
+    work["product_id"] = work["product_id"].apply(_normalize_user_id_value)
+    work["review_ts"] = pd.to_datetime(work.get("review_datetime", work.get("review_date")), errors="coerce")
+    work = work.dropna(subset=["review_ts"])
+    work["rating"] = pd.to_numeric(work.get("rating", 0.0), errors="coerce").fillna(0.0)
+    if "evidence_score" in work.columns:
+        prior = pd.to_numeric(work["evidence_score"], errors="coerce").fillna(0.0)
+    elif "p_fake_review" in work.columns:
+        prior = pd.to_numeric(work["p_fake_review"], errors="coerce").fillna(0.0)
+    else:
+        prior = pd.Series(np.zeros(len(work), dtype=np.float32), index=work.index)
+    if "p_fake_review" in work.columns:
+        prior = np.maximum(prior.to_numpy(dtype=np.float32), pd.to_numeric(work["p_fake_review"], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32))
+        prior = pd.Series(prior, index=work.index, dtype=np.float32)
+    work["review_fake_prior"] = pd.to_numeric(prior, errors="coerce").fillna(0.0).clip(0.0, 1.0)
+    product_rating_mean = work.groupby("product_id")["rating"].mean().to_dict()
+
+    ordered_user_ids = user_df["user_id"].apply(_normalize_user_id_value).tolist()
+    user_index = {user_id: idx for idx, user_id in enumerate(ordered_user_ids)}
+    user_abnormal_map = {
+        user_id: user_abnormal_vectors[idx].astype(np.float32)
+        for idx, user_id in enumerate(ordered_user_ids)
+        if idx < len(user_abnormal_vectors)
+    }
+
+    pair_stats: dict[tuple[str, str], dict[str, Any]] = {}
+    session_rows: list[dict[str, Any]] = []
+    session_id = 0
+    phi_days = max(int(phi_days), 1)
+
+    def _session_logic_consistency(members: list[str], member_prior_map: dict[str, float]) -> float:
+        eligible = [user_id for user_id in members if user_id in user_abnormal_map]
+        if len(eligible) <= 1:
+            return 0.0
+        eligible.sort(key=lambda user_id: member_prior_map.get(user_id, 0.0), reverse=True)
+        eligible = eligible[:12]
+        vectors = np.asarray([user_abnormal_map[user_id] for user_id in eligible], dtype=np.float32)
+        if len(vectors) <= 1:
+            return 0.0
+        vectors = _normalize_vectors(vectors)
+        sim = vectors @ vectors.T
+        upper = sim[np.triu_indices(len(vectors), k=1)]
+        return float(np.clip(np.mean(upper) if upper.size else 0.0, 0.0, 1.0))
+
+    def _process_session(session_df: pd.DataFrame) -> None:
+        nonlocal session_id
+        if session_df.empty:
+            return
+        members = sorted(session_df["user_id"].astype(str).unique().tolist())
+        member_first_ts = session_df.groupby("user_id")["review_ts"].min().to_dict()
+        member_prior_map = session_df.groupby("user_id")["review_fake_prior"].mean().astype(float).to_dict()
+        duration_days = float((session_df["review_ts"].max() - session_df["review_ts"].min()).total_seconds() / 86400.0) if len(session_df) > 1 else 0.0
+        session_review_count = int(len(session_df))
+        session_size = int(len(members))
+        density = float(session_review_count / max(duration_days, 1.0))
+        extreme_ratio = float(session_df["rating"].isin([1.0, 5.0]).mean()) if session_review_count else 0.0
+        rating_mean = float(session_df["rating"].mean()) if session_review_count else 0.0
+        rating_std = float(session_df["rating"].std(ddof=0)) if session_review_count > 1 else 0.0
+        rating_dev_mean = float(
+            np.mean(
+                np.abs(
+                    session_df["rating"].to_numpy(dtype=np.float32)
+                    - np.asarray([product_rating_mean.get(product_id, rating_mean) for product_id in session_df["product_id"].astype(str)], dtype=np.float32)
+                )
+            )
+        ) if session_review_count else 0.0
+        fake_prior_values = session_df["review_fake_prior"].to_numpy(dtype=np.float32)
+        topk_fake_prior = np.sort(fake_prior_values)[-min(3, len(fake_prior_values)):] if len(fake_prior_values) else np.asarray([0.0], dtype=np.float32)
+        session_logic_consistency = _session_logic_consistency(members, member_prior_map)
+
+        session_rows.append(
+            {
+                "session_id": session_id,
+                "product_id": str(session_df["product_id"].iloc[0]),
+                "start_time": str(session_df["review_ts"].min()),
+                "end_time": str(session_df["review_ts"].max()),
+                "duration_days": duration_days,
+                "session_size": session_size,
+                "session_review_count": session_review_count,
+                "session_density": density,
+                "session_unique_products": int(session_df["product_id"].astype(str).nunique()),
+                "session_rating_mean": rating_mean,
+                "session_rating_std": rating_std,
+                "session_extreme_rating_ratio": extreme_ratio,
+                "session_rating_deviation_mean": rating_dev_mean,
+                "session_fake_prior_mean": float(np.mean(fake_prior_values) if len(fake_prior_values) else 0.0),
+                "session_fake_prior_max": float(np.max(fake_prior_values) if len(fake_prior_values) else 0.0),
+                "session_fake_prior_topk_mean": float(np.mean(topk_fake_prior)),
+                "session_logic_consistency": session_logic_consistency,
+                "member_count": session_size,
+            }
+        )
+
+        if session_size <= 1:
+            session_id += 1
+            return
+
+        member_set = set(members)
+        for src_user_id in members:
+            for dst_user_id in candidate_neighbors.get(src_user_id, set()) & member_set:
+                if src_user_id >= dst_user_id:
+                    continue
+                key = tuple(sorted((src_user_id, dst_user_id)))
+                if key not in candidate_logic_scores:
+                    continue
+                time_gap_days = abs((member_first_ts[src_user_id] - member_first_ts[dst_user_id]).total_seconds()) / 86400.0
+                stats = pair_stats.setdefault(
+                    key,
+                    {
+                        "same_burst_session_count": 0,
+                        "pair_repeated_temporal_contacts": 0,
+                        "time_gaps": [],
+                        "session_group_sizes": [],
+                        "session_densities": [],
+                        "session_fake_priors": [],
+                        "session_logic_consistencies": [],
+                        "session_member_sets": [],
+                    },
+                )
+                stats["same_burst_session_count"] += 1
+                stats["pair_repeated_temporal_contacts"] += 1
+                stats["time_gaps"].append(float(time_gap_days))
+                stats["session_group_sizes"].append(float(session_size))
+                stats["session_densities"].append(float(density))
+                stats["session_fake_priors"].append(float(np.mean(fake_prior_values) if len(fake_prior_values) else 0.0))
+                stats["session_logic_consistencies"].append(float(session_logic_consistency))
+                if len(stats["session_member_sets"]) < 8:
+                    stats["session_member_sets"].append(set(members))
+        session_id += 1
+
+    for _product_id, product_reviews in work.groupby("product_id", sort=False):
+        ordered = product_reviews.sort_values("review_ts").reset_index(drop=True)
+        if ordered.empty:
+            continue
+        session_start = 0
+        for idx in range(1, len(ordered)):
+            gap_days = float((ordered.loc[idx, "review_ts"] - ordered.loc[idx - 1, "review_ts"]).total_seconds() / 86400.0)
+            if gap_days > float(phi_days):
+                _process_session(ordered.iloc[session_start:idx].copy())
+                session_start = idx
+        _process_session(ordered.iloc[session_start:].copy())
+
+    pair_rows: list[dict[str, Any]] = []
+    for (src_user_id, dst_user_id), stats in pair_stats.items():
+        time_gaps = np.asarray(stats["time_gaps"], dtype=np.float32) if stats["time_gaps"] else np.asarray([phi_days + 1.0], dtype=np.float32)
+        session_sets = stats["session_member_sets"]
+        jaccards: list[float] = []
+        if len(session_sets) > 1:
+            limit = min(len(session_sets), 6)
+            for i in range(limit):
+                for j in range(i + 1, limit):
+                    lhs = session_sets[i]
+                    rhs = session_sets[j]
+                    union_size = len(lhs | rhs)
+                    if union_size <= 0:
+                        continue
+                    jaccards.append(float(len(lhs & rhs) / union_size))
+        pair_rows.append(
+            {
+                "src_user_id": src_user_id,
+                "dst_user_id": dst_user_id,
+                "logic_score": float(candidate_logic_scores.get((src_user_id, dst_user_id), 0.0)),
+                "same_burst_session_count": int(stats["same_burst_session_count"]),
+                "pair_repeated_temporal_contacts": int(stats["pair_repeated_temporal_contacts"]),
+                "min_time_gap_days": float(np.min(time_gaps)),
+                "mean_time_gap_days": float(np.mean(time_gaps)),
+                "temporal_closeness": _clip01(1.0 / (1.0 + float(np.min(time_gaps)))),
+                "max_session_group_size": float(np.max(stats["session_group_sizes"]) if stats["session_group_sizes"] else 0.0),
+                "mean_session_group_size": float(np.mean(stats["session_group_sizes"]) if stats["session_group_sizes"] else 0.0),
+                "max_session_density": float(np.max(stats["session_densities"]) if stats["session_densities"] else 0.0),
+                "mean_session_density": float(np.mean(stats["session_densities"]) if stats["session_densities"] else 0.0),
+                "max_session_fake_prior": float(np.max(stats["session_fake_priors"]) if stats["session_fake_priors"] else 0.0),
+                "mean_session_fake_prior": float(np.mean(stats["session_fake_priors"]) if stats["session_fake_priors"] else 0.0),
+                "max_session_logic_consistency": float(np.max(stats["session_logic_consistencies"]) if stats["session_logic_consistencies"] else 0.0),
+                "mean_session_logic_consistency": float(np.mean(stats["session_logic_consistencies"]) if stats["session_logic_consistencies"] else 0.0),
+                "repeated_group_count": int(max(len(session_sets) - 1, 0)),
+                "group_jaccard_overlap_max": float(np.max(jaccards) if jaccards else 0.0),
+                "group_jaccard_overlap_mean": float(np.mean(jaccards) if jaccards else 0.0),
+            }
+        )
+
+    pair_df = pd.DataFrame(pair_rows, columns=columns)
+    normalization_stats: dict[str, dict[str, float]] = {}
+    norm_columns = [
+        "same_burst_session_count",
+        "pair_repeated_temporal_contacts",
+        "temporal_closeness",
+        "mean_session_fake_prior",
+        "mean_session_logic_consistency",
+        "group_jaccard_overlap_max",
+        "repeated_group_count",
+    ]
+    for column in norm_columns:
+        normalized, stats = _minmax_normalize(pair_df[column] if column in pair_df.columns else pd.Series(dtype=float))
+        pair_df[f"{column}_norm"] = normalized
+        normalization_stats[column] = stats
+    heavy_components = [
+        "same_burst_session_count_norm",
+        "temporal_closeness_norm",
+        "mean_session_fake_prior_norm",
+        "mean_session_logic_consistency_norm",
+        "group_jaccard_overlap_max_norm",
+        "repeated_group_count_norm",
+    ]
+    pair_df["tns_heavy_score"] = pair_df.reindex(columns=heavy_components, fill_value=0.0).mean(axis=1).astype(np.float32)
+    pair_df["has_tns_heavy_evidence"] = (pair_df["same_burst_session_count"] > 0).astype(int)
+
+    session_df = pd.DataFrame(session_rows)
+    config = {
+        "phi_days": int(phi_days),
+        "logic_candidate_edges": int(len(logic_edges)),
+        "pair_feature_count": int(len(pair_df)),
+        "session_count": int(len(session_df)),
+        "notes": "TNS-heavy features are accumulated only for LogicAE candidate pairs to keep runtime bounded.",
+    }
+    stats = {
+        "normalization": normalization_stats,
+        "pair_rows": int(len(pair_df)),
+        "session_rows": int(len(session_df)),
+        "logic_candidate_edges": int(len(logic_edges)),
+    }
+    pair_df.to_csv(pair_path, index=False)
+    session_df.to_csv(session_path, index=False)
+    config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    stats_path.write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {
+        "cache_dir": cache_dir,
+        "pair_df": pair_df,
+        "session_df": session_df,
+        "config": config,
+        "stats": stats,
+        "pair_path": pair_path,
+        "session_path": session_path,
+        "config_path": config_path,
+        "stats_path": stats_path,
+    }
+
+
 
 
 def _build_tns_guided_logicae_edges(

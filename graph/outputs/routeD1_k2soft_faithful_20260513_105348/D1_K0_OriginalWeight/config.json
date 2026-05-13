@@ -1,0 +1,11 @@
+{
+  "experiment_name": "D1_K0_OriginalWeight",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "implementation": "routeK_d1_k2soft_faithful",
+  "strategy": "K0_original_d1_weight",
+  "soft_mode": "fixed_original",
+  "semantic_contract": "No candidate pool rebuild, no top-k selection, no rerank; D1 directed pairs and order are preserved."
+}

@@ -1,0 +1,31 @@
+{
+  "experiment_name": "D1_K2_AbnormalTNSSoftWeight",
+  "graph_mode": "current",
+  "topk_mode": "d1_k2soft_faithful",
+  "soft_mode": "abnormal_tns_soft",
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "tns_phi_days": 5,
+  "abnormal_score_source": "auto",
+  "is_strict_d1_topology": true,
+  "allows_new_edges_outside_d1": false,
+  "selection_policy": "none; edge pairs and order are copied from the reference D1 edge files",
+  "weight_policy": "model edge files keep the exact D1 schema; edge_weight is original D1 weight for K0, abnormal-soft for K1, abnormal+TNS-soft for K2",
+  "audit_column_policy": "soft diagnostic columns are written only to metrics samples/stats and never passed to the model",
+  "soft_context": {
+    "tns_pair_count": 111,
+    "temporal_pair_count": 12841,
+    "tns_cache_keys": [
+      "cache_dir",
+      "config",
+      "config_path",
+      "pair_df",
+      "pair_path",
+      "session_df",
+      "session_path",
+      "stats",
+      "stats_path"
+    ]
+  }
+}
