@@ -692,6 +692,8 @@ def _fit_graph_backbone_model(
     use_learnable_gate: bool = False,
     gate_eta: float = 0.5,
     use_node_gat: bool = False,
+    max_epochs_override: int | None = None,
+    patience_override: int | None = None,
 ) -> tuple[Any, np.ndarray, np.ndarray]:
     torch, _, _ = _import_torch_modules()
     torch.manual_seed(seed)
@@ -741,6 +743,10 @@ def _fit_graph_backbone_model(
     bad_epochs = 0
     max_epochs = 120 if backbone == "senior_topk" else (140 if senior_style else 100)
     patience = 18 if backbone == "senior_topk" else (20 if senior_style else 16)
+    if max_epochs_override is not None:
+        max_epochs = max(1, int(max_epochs_override))
+    if patience_override is not None:
+        patience = max(1, int(patience_override))
     rng = np.random.default_rng(seed)
 
     union_pack = None
@@ -896,6 +902,8 @@ def run_relation_aggregation_experiments(
     selected_edge_set: str | None = None,
     relation_topk: int | None = None,
     use_node_gat: bool = False,
+    max_epochs_override: int | None = None,
+    patience_override: int | None = None,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1052,6 +1060,8 @@ def run_relation_aggregation_experiments(
                 use_learnable_gate=bool(use_abnormal_gate and abnormal_gate_learnable),
                 gate_eta=abnormal_gate_eta,
                 use_node_gat=use_node_gat,
+                max_epochs_override=max_epochs_override,
+                patience_override=patience_override,
             )
             torch_runtime, _, _ = _import_torch_modules()
             device = next(model.parameters()).device

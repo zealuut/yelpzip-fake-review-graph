@@ -1,0 +1,17 @@
+{
+  "base_source": "D1_EGAT_Base_LogicAE_CB",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "review_encoder": "llm_masked_logic",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "seed": 42,
+  "hidden_dim": 128,
+  "num_layers": 2,
+  "dropout": 0.2,
+  "heads": 4,
+  "lr": 0.001,
+  "weight_decay": 0.0005,
+  "max_epochs": 100,
+  "patience": 16
+}

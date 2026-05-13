@@ -1,0 +1,22 @@
+{
+  "experiment_name": "GAT_FullBase_NoAbnormalTextHead",
+  "model": "GAT",
+  "graph_protocol": "full_base_upu_utu_usu",
+  "relation_handling": "homogeneous_union_topology",
+  "feature_policy": "numeric_user_summary_excluding_abnormal_text_head",
+  "feature_source": "yelpzip_senior_backbone_clean_formal_20260502_101931/logic_vectors/user_summary.csv",
+  "full_base_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_senior_backbone_clean_formal_20260502_101931",
+  "relations": ["UPU", "UTU", "USU"],
+  "hidden_dim": 64,
+  "num_layers": 2,
+  "heads": 2,
+  "dropout": 0.2,
+  "lr": 0.001,
+  "weight_decay": 0.0005,
+  "epochs": 100,
+  "patience": 16,
+  "seed": 42,
+  "early_stopping_metric": "val_auc",
+  "threshold_selection": "validation_f1",
+  "notes": "Standard GAT baseline on UPU/UTU/USU full-base graph. Topology only; no LogicAE/TNS/abnormal edges; no abnormal text vector or abnormal-head-derived node features."
+}

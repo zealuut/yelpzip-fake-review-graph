@@ -150,6 +150,12 @@ def build_review_model(
     secondary_model_name_or_path: str | None = None,
     freeze_primary: bool = False,
     freeze_secondary: bool = False,
+    abnormal_aux_enabled: bool = False,
+    abnormal_aux_position: str = "logic_gated_cross",
+    disable_cross_attention: bool = False,
+    disable_logic_bilstm: bool = False,
+    logic_pooling: str = "attention",
+    gate_mode: str = "learned",
 ) -> nn.Module:
     if review_encoder == "mock":
         return MockReviewEncoder(numeric_feature_dim=numeric_feature_dim, vector_dim=vector_dim)
@@ -162,6 +168,12 @@ def build_review_model(
         secondary_model_name_or_path=secondary_model_name_or_path,
         freeze_primary=freeze_primary,
         freeze_secondary=freeze_secondary,
+        abnormal_aux_enabled=abnormal_aux_enabled,
+        abnormal_aux_position=abnormal_aux_position,
+        disable_cross_attention=disable_cross_attention,
+        disable_logic_bilstm=disable_logic_bilstm,
+        logic_pooling=logic_pooling,
+        gate_mode=gate_mode,
     )
 
 
@@ -243,9 +255,11 @@ def _run_epoch(
     device: torch.device,
     optimizer: torch.optim.Optimizer | None,
     criterion: nn.Module,
-) -> tuple[float, np.ndarray, np.ndarray]:
+    abnormal_aux_lambda: float = 0.0,
+) -> tuple[float, np.ndarray, np.ndarray, np.ndarray]:
     losses: list[float] = []
     all_probs: list[np.ndarray] = []
+    all_aux_probs: list[np.ndarray] = []
     all_labels: list[np.ndarray] = []
     training = optimizer is not None
     model.train(training)
@@ -266,6 +280,9 @@ def _run_epoch(
                 numeric_features=numeric_features,
             )
             loss = criterion(outputs.review_logit, labels)
+            if abnormal_aux_lambda > 0.0 and outputs.abnormal_aux_logit is not None:
+                aux_loss = criterion(outputs.abnormal_aux_logit, labels)
+                loss = loss + float(abnormal_aux_lambda) * aux_loss
             if training:
                 optimizer.zero_grad()
                 loss.backward()
@@ -275,12 +292,16 @@ def _run_epoch(
         losses.append(float(loss.detach().cpu()))
         probs = torch.sigmoid(outputs.review_logit).detach().cpu().numpy()
         all_probs.append(probs)
+        if outputs.abnormal_aux_logit is not None:
+            aux_probs = torch.sigmoid(outputs.abnormal_aux_logit).detach().cpu().numpy()
+            all_aux_probs.append(aux_probs)
         all_labels.append(labels.detach().cpu().numpy())
 
     return (
         float(np.mean(losses) if losses else 0.0),
         np.concatenate(all_labels) if all_labels else np.asarray([], dtype=np.float32),
         np.concatenate(all_probs) if all_probs else np.asarray([], dtype=np.float32),
+        np.concatenate(all_aux_probs) if all_aux_probs else np.asarray([], dtype=np.float32),
     )
 
 
@@ -292,6 +313,7 @@ def train_review_encoder(
     learning_rate: float,
     num_epochs: int,
     patience: int,
+    abnormal_aux_lambda: float = 0.0,
 ) -> tuple[Path, Path]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -317,19 +339,21 @@ def train_review_encoder(
 
     model.to(device)
     for epoch_index in range(num_epochs):
-        train_loss, train_y, train_prob = _run_epoch(
+        train_loss, train_y, train_prob, train_aux_prob = _run_epoch(
             model=model,
             dataloader=dataloaders["train"],
             device=device,
             optimizer=optimizer,
             criterion=criterion,
+            abnormal_aux_lambda=abnormal_aux_lambda,
         )
-        val_loss, val_y, val_prob = _run_epoch(
+        val_loss, val_y, val_prob, val_aux_prob = _run_epoch(
             model=model,
             dataloader=dataloaders["val"],
             device=device,
             optimizer=None,
             criterion=criterion,
+            abnormal_aux_lambda=abnormal_aux_lambda,
         )
         train_metrics = compute_binary_metrics(train_y, train_prob)
         val_metrics = compute_binary_metrics(val_y, val_prob)
@@ -339,7 +363,12 @@ def train_review_encoder(
             "val_loss": val_loss,
             "train_metrics": train_metrics,
             "val_metrics": val_metrics,
+            "abnormal_aux_lambda": float(abnormal_aux_lambda),
         }
+        if train_aux_prob.size == train_y.size and train_aux_prob.size > 0:
+            epoch_payload["train_aux_metrics"] = compute_binary_metrics(train_y, train_aux_prob)
+        if val_aux_prob.size == val_y.size and val_aux_prob.size > 0:
+            epoch_payload["val_aux_metrics"] = compute_binary_metrics(val_y, val_aux_prob)
         if val_metrics["auc"] >= best_val_auc:
             best_val_auc = val_metrics["auc"]
             bad_epochs = 0

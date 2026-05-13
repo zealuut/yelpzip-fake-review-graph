@@ -1,0 +1,36 @@
+{
+  "base_source": "D1_EGAT_Base_LogicAE_CB",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "review_encoder": "llm_masked_logic",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "seed": 42,
+  "alpha_abnormal": 0.5,
+  "beta_tns": 0.2,
+  "gamma_interaction": 0.2,
+  "candidate_topM": {
+    "UPU": 100,
+    "UTU": 100,
+    "USU": 50,
+    "LogicAE_CB": 50
+  },
+  "k2_relation_k": {
+    "UPU": 20,
+    "UTU": 20,
+    "USU": 20,
+    "LogicAE_CB": 20
+  },
+  "k4_arms": [
+    {"arm_id": 0, "UPU": 20, "UTU": 20, "USU": 20, "LogicAE_CB": 20},
+    {"arm_id": 1, "UPU": 10, "UTU": 10, "USU": 20, "LogicAE_CB": 20},
+    {"arm_id": 2, "UPU": 10, "UTU": 10, "USU": 10, "LogicAE_CB": 30},
+    {"arm_id": 3, "UPU": 5, "UTU": 5, "USU": 20, "LogicAE_CB": 30},
+    {"arm_id": 4, "UPU": 20, "UTU": 10, "USU": 10, "LogicAE_CB": 30},
+    {"arm_id": 5, "UPU": 10, "UTU": 20, "USU": 10, "LogicAE_CB": 30},
+    {"arm_id": 6, "UPU": 5, "UTU": 10, "USU": 10, "LogicAE_CB": 40},
+    {"arm_id": 7, "UPU": 15, "UTU": 15, "USU": 15, "LogicAE_CB": 25},
+    {"arm_id": 8, "UPU": 5, "UTU": 5, "USU": 10, "LogicAE_CB": 40},
+    {"arm_id": 9, "UPU": 10, "UTU": 5, "USU": 20, "LogicAE_CB": 30}
+  ]
+}

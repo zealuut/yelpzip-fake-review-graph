@@ -4,6 +4,7 @@
 # Keep the repository surface.
 !/.gitignore
 !/README.md
+!/AGENTS.md
 !/graph/
 !/graph/**
 !/reports/

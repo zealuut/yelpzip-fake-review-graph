@@ -17,7 +17,6 @@ from .graph_pipeline import (
     build_self_feature_matrix,
     compute_edge_stats,
 )
-from .legacy_textcls import run_legacy_review_baselines
 from .llm_utils import build_llm_features_and_masks, numeric_feature_columns
 from .relation_model import run_relation_aggregation_experiments
 from .review_training import (
@@ -113,6 +112,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--patience", type=int, default=2)
     parser.add_argument("--freeze_primary", action="store_true", default=False)
     parser.add_argument("--freeze_secondary", action="store_true", default=False)
+    parser.add_argument("--abnormal_aux_lambda", type=float, default=0.0)
+    parser.add_argument(
+        "--abnormal_aux_position",
+        choices=[
+            "logic_query",
+            "cross_context",
+            "gated_cross",
+            "logic_gated_cross",
+            "logic_cross_context",
+            "final_review_vector",
+        ],
+        default="logic_gated_cross",
+    )
+    parser.add_argument("--disable_cross_attention", action="store_true", default=False)
+    parser.add_argument("--disable_logic_bilstm", action="store_true", default=False)
+    parser.add_argument("--logic_pooling", choices=["attention", "mean"], default="attention")
+    parser.add_argument("--gate_mode", choices=["learned", "no_gate", "fixed_half", "numeric_only", "text_only"], default="learned")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--run_legacy_baselines", action="store_true", default=False)
     parser.add_argument("--legacy_roberta_model_dir", default="roberta-base")
@@ -219,6 +235,12 @@ def main() -> None:
         secondary_model_name_or_path=args.secondary_model_name_or_path,
         freeze_primary=args.freeze_primary,
         freeze_secondary=args.freeze_secondary,
+        abnormal_aux_enabled=args.abnormal_aux_lambda > 0.0,
+        abnormal_aux_position=args.abnormal_aux_position,
+        disable_cross_attention=args.disable_cross_attention,
+        disable_logic_bilstm=args.disable_logic_bilstm,
+        logic_pooling=args.logic_pooling,
+        gate_mode=args.gate_mode,
     )
     checkpoint_path, review_metrics_path = train_review_encoder(
         model=model,
@@ -228,6 +250,7 @@ def main() -> None:
         learning_rate=args.learning_rate,
         num_epochs=args.num_epochs,
         patience=args.patience,
+        abnormal_aux_lambda=args.abnormal_aux_lambda,
     )
     encoding_artifacts = encode_all_reviews(
         model=model,
@@ -372,6 +395,8 @@ def main() -> None:
 
     legacy_results_df = None
     if args.run_legacy_baselines:
+        from .legacy_textcls import run_legacy_review_baselines
+
         legacy_results_df = run_legacy_review_baselines(
             data_dir=prepared.legacy_tsv_dir,
             output_dir=legacy_dir,
@@ -390,6 +415,13 @@ def main() -> None:
         "output_root": str(output_root),
         "prepared_source": str(prepared.source_path),
         "review_encoder": args.review_encoder,
+        "review_encoder_semantics": "full_text_logic_aux" if args.mask_source == "full_text" else args.review_encoder,
+        "abnormal_aux_lambda": float(args.abnormal_aux_lambda),
+        "abnormal_aux_position": args.abnormal_aux_position,
+        "disable_cross_attention": bool(args.disable_cross_attention),
+        "disable_logic_bilstm": bool(args.disable_logic_bilstm),
+        "logic_pooling": args.logic_pooling,
+        "gate_mode": args.gate_mode,
         "device": str(device),
         "debug_use_empty_mask": bool(args.debug_use_empty_mask),
         "mask_source": args.mask_source,

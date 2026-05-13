@@ -1,0 +1,86 @@
+{
+  "description": "Phase-1 D1 abnormal aux-head route. Train D1 full-text logic encoder with an abnormal auxiliary review-label loss, then run D1 Base_LogicAE_CB graph.",
+  "base_protocol": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "review_encoder_semantics": "full_text_logic_no_llm_mask",
+    "mask_source": "full_text",
+    "seed": 42,
+    "train_ratio": 0.64,
+    "val_ratio": 0.16,
+    "test_ratio": 0.20,
+    "balance_user_labels": true,
+    "balanced_user_count": 6742,
+    "min_user_reviews": 3,
+    "min_product_reviews": 3,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "logic_threshold_mode": "quantile",
+    "logic_threshold_quantile": 0.60,
+    "logic_threshold_value": 0.30,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "disable_graph_reweighting": true,
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "learning_rate": 0.00002,
+    "num_epochs": 3,
+    "patience": 2,
+    "device": "auto"
+  },
+  "defaults": {
+    "abnormal_aux_lambda": 0.3,
+    "abnormal_aux_position": "logic_gated_cross",
+    "disable_cross_attention": false,
+    "disable_logic_bilstm": false,
+    "logic_pooling": "attention",
+    "gate_mode": "learned"
+  },
+  "future_ablation_space": [
+    "logic_pooling=mean",
+    "gate_mode=numeric_only",
+    "gate_mode=fixed_half",
+    "abnormal_aux_position=logic_query",
+    "abnormal_aux_position=cross_context",
+    "abnormal_aux_position=gated_cross",
+    "abnormal_aux_position=logic_gated_cross",
+    "abnormal_aux_position=final_review_vector"
+  ],
+  "variants": [
+    {
+      "experiment_name": "D1_AUX_full",
+      "notes": "Main review loss plus lambda_abnormal_aux * BCE(aux([logic_query, gated_cross]), y_review)."
+    },
+    {
+      "experiment_name": "A1_no_cross_attention",
+      "disable_cross_attention": true,
+      "abnormal_aux_position": "logic_query",
+      "notes": "Tests whether full-text mask plus Logic BiLSTM can classify without cross-attention."
+    },
+    {
+      "experiment_name": "A5_no_logic_bilstm",
+      "disable_logic_bilstm": true,
+      "notes": "Replaces Logic BiLSTM with masked mean pooling projected into logic_query."
+    },
+    {
+      "experiment_name": "A8_no_gate",
+      "gate_mode": "no_gate",
+      "notes": "Uses gated_cross = cross_context."
+    },
+    {
+      "experiment_name": "A16_aux_on_final_review_vector",
+      "abnormal_aux_position": "final_review_vector",
+      "notes": "Control: aux loss supervises the final review vector rather than the abnormal branch."
+    },
+    {
+      "experiment_name": "A17_aux_text_only",
+      "abnormal_aux_position": "logic_cross_context",
+      "notes": "Aux head uses [logic_query, cross_context], excluding numeric_proj and numeric-dependent gate leakage."
+    }
+  ]
+}
