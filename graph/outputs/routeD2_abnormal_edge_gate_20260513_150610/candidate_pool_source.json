@@ -1,0 +1,5 @@
+{
+  "source": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeK_candidate_pool_smoke_20260511/D1_K2_CandidatePool_smoke/edges",
+  "pool_top_k": 100,
+  "policy": "reuse existing no-TNS topK candidate edge files; rebuild only when the source is unavailable"
+}

@@ -1,0 +1,60 @@
+{
+  "description": "D2/K2 no-TNS abnormal edge route. Keep D1 base fixed for gate-only arms, and compare abnormal-score candidate-pool reselection arms.",
+  "base_source": "D1_EGAT_Base_LogicAE_CB",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "review_encoder": "llm_masked_logic",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "seed": 42,
+  "abnormal_score_source": "auto",
+  "pool_top_k": 100,
+  "candidate_pool_source_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeK_candidate_pool_smoke_20260511/D1_K2_CandidatePool_smoke",
+  "selected_top_k": 20,
+  "diagnostic_score_weights": {
+    "base_rank": 0.55,
+    "u_shape": 0.30,
+    "pair_abnormal": 0.15
+  },
+  "variants": [
+    {
+      "experiment_name": "D2A_FixedD1_LearnableGate_eta03",
+      "strategy": "fixed_d1_topology_learnable_gate",
+      "topology_mode": "fixed_d1",
+      "gate_eta": 0.3,
+      "notes": "D1 directed edge pairs are copied exactly; abnormal pair features enter only as no-TNS edge context/gate signal."
+    },
+    {
+      "experiment_name": "D2A_FixedD1_LearnableGate_eta05",
+      "strategy": "fixed_d1_topology_learnable_gate",
+      "topology_mode": "fixed_d1",
+      "gate_eta": 0.5,
+      "notes": "Same fixed D1 topology with a wider learnable message gate range."
+    },
+    {
+      "experiment_name": "D2B_Pool100_PairAbnTop20_GateEta05",
+      "strategy": "pool100_pair_abnormal_reselect_top20",
+      "topology_mode": "pool_reselect",
+      "selection_score": "pair_abnormal_score",
+      "gate_eta": 0.5,
+      "notes": "Reuse/build a top100 candidate pool per relation and select top20 per source by pair abnormal score only."
+    },
+    {
+      "experiment_name": "D2B_Pool100_DiagnosticTop20_GateEta05",
+      "strategy": "pool100_diagnostic_reselect_top20",
+      "topology_mode": "pool_reselect",
+      "selection_score": "diagnostic_gate_score",
+      "gate_eta": 0.5,
+      "notes": "Reuse/build a top100 candidate pool, then select top20 per source by base-rank plus U-shaped abnormal consistency score from edge diagnostics."
+    },
+    {
+      "experiment_name": "D2B_Pool100_DiagnosticReserve50_GateEta05",
+      "strategy": "pool100_diagnostic_reselect_top20_with_d1_reserve",
+      "topology_mode": "pool_reselect_reserve",
+      "selection_score": "diagnostic_gate_score",
+      "d1_reserve_ratio": 0.5,
+      "gate_eta": 0.5,
+      "notes": "Keep the first half of D1 neighbors and fill the rest from pool60 by diagnostic score."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "experiment_name": "D2A_FixedD1_LearnableGate_eta05",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "implementation": "routeD2_abnormal_edge_gate",
+  "topology_mode": "fixed_d1",
+  "selection_policy": "fixed_d1_topology",
+  "gate_eta": 0.5,
+  "no_tns": true
+}

@@ -1,0 +1,12 @@
+{
+  "experiment_name": "D2B_Pool100_DiagnosticReserve50_GateEta05",
+  "graph_mode": "current",
+  "edge_set": "Base_LogicAE_CB",
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "implementation": "routeD2_abnormal_edge_gate",
+  "topology_mode": "pool_reselect_reserve",
+  "selection_policy": "pool_top100_reserve_0.5_select_top20_by_diagnostic_gate_score",
+  "gate_eta": 0.5,
+  "no_tns": true
+}
