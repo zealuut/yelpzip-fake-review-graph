@@ -1,0 +1,186 @@
+{
+  "canonical_base_id": "D1_YELPCURRENT_RETRAIN_REPEAT01_STRONG_BASELINE",
+  "created_at": "2026-05-14T20:19:21",
+  "experiment_type": "fresh_yelpcurrent_artifact_plus_d1_graph_baseline",
+  "stable_alias": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_fresh_repro_CANONICAL_D1",
+  "baseline_alias": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_YELPCURRENT_RETRAIN_BASELINE",
+  "copied_to": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204",
+  "source_multirun_root": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix",
+  "source_artifact_repeat01": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/artifacts/yelpcurrent_retrain_repeat_01",
+  "source_d1_graph_repeat01": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/routed_d1/repeat_01_D1_EGAT_Base_LogicAE_CB",
+  "fresh_retrained_artifact": true,
+  "used_as_current_governance_d1_baseline": true,
+  "promotion_reason": "User decided repeat01 from the ce6a9d6 yelpcurrent artifact retrain plus D1 graph rerun is the governance strong baseline.",
+  "baseline_metrics": {
+    "d1_auc": 0.8545569793813736,
+    "d1_ap": 0.8522126584244006,
+    "d1_f1": 0.7827278958190541,
+    "d1_recall": 0.856071964017991,
+    "d1_precision": 0.7209595959595959,
+    "review_epoch": 1,
+    "review_val_auc": 0.7496077001,
+    "review_val_ap": 0.6097301352,
+    "review_val_f1": 0.6160561776
+  },
+  "multirun_partial_context": [
+    {
+      "repeat": 1,
+      "seed": 42,
+      "artifact_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/artifacts/yelpcurrent_retrain_repeat_01",
+      "d1_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/routed_d1/repeat_01_D1_EGAT_Base_LogicAE_CB",
+      "review_epoch": 1,
+      "review_val_auc": 0.7496077001,
+      "review_val_ap": 0.6097301352,
+      "review_val_f1": 0.6160561776,
+      "d1_auc": 0.8545569793813736,
+      "d1_ap": 0.8522126584244006,
+      "d1_f1": 0.7827278958190541,
+      "d1_recall": 0.856071964017991,
+      "d1_precision": 0.7209595959595959,
+      "status": "ok"
+    },
+    {
+      "repeat": 2,
+      "seed": 42,
+      "artifact_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/artifacts/yelpcurrent_retrain_repeat_02",
+      "d1_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/routed_d1/repeat_02_D1_EGAT_Base_LogicAE_CB",
+      "review_epoch": 2,
+      "review_val_auc": 0.7550083385,
+      "review_val_ap": 0.6175493826,
+      "review_val_f1": 0.6138539516,
+      "d1_auc": 0.846498789585717,
+      "d1_ap": 0.8406636596031787,
+      "d1_f1": 0.7805519053876478,
+      "d1_recall": 0.8905547226386806,
+      "d1_precision": 0.6947368421052632,
+      "status": "ok"
+    }
+  ],
+  "strict_reuse_policy": {
+    "allowed": "Use this baseline as the governance strong D1 baseline for downstream fixed-D1 graph and route comparisons.",
+    "not_allowed": "If an experiment changes review encoder, abnormal head, aux loss, mask semantics, vector dimension, tokenizer/max length, or vector-producing logic, regenerate the artifact and compare against a paired no-change control."
+  },
+  "governance_git_commit_at_promotion": "869cf42de263af1a8d8d8ec8ff68f5973c63ef28",
+  "governance_git_status_short_at_promotion": "M AGENTS.md\n M graph/routes/routeL_abnormal_aux_head/README.md\n M graph/routes/routeL_abnormal_aux_head/configs/abnormal_aux_phase1.json\n?? graph/outputs/_tmp_routeG_probe/\n?? graph/outputs/d1_combo_probe_20260514_111951/\n?? graph/outputs/d1_graph_seed_variance_20260514_121057/\n?? graph/outputs/k2_edge_gate_diagnostics_20260513_1400/\n?? graph/outputs/routeBaseline_StandardNoAbnormal_20260513_095809/\n?? graph/outputs/routeBaseline_StandardNoAbnormal_smoke_20260512_235820/\n?? graph/outputs/routeD1_fresh_repro_20260514_092820/\n?? graph/outputs/routeD1_fresh_repro_canonical_oldbest_20260514_144851/\n?? graph/outputs/routeD1_fresh_repro_canonical_strongest_20260514_0p856370/\n?? graph/outputs/routeD1_fresh_repro_epoch2_20260514_112300/\n?? graph/outputs/routeD1_fresh_repro_smoke_20260514_manual/\n?? graph/outputs/routeD1_fresh_repro_smoke_artifact_reuse_20260514_115736/\n?? graph/outputs/routeD1_fresh_repro_smoke_epoch2_config_20260514_115452/\n?? graph/outputs/routeD1_k2soft_faithful_20260513_104044/\n?? graph/outputs/routeD1_k2soft_faithful_schemafix_smoke_20260513_1055/\n?? graph/outputs/routeD1_k2soft_faithful_smoke_20260513_1036/\n?? graph/outputs/routeD1_kattach_candidate_pool_20260512_095554/\n?? graph/outputs/routeD1_kattach_candidate_pool_20260512_104126/\n?? graph/outputs/routeD1_kattach_fixed_prefix_20260512_201550/\n?? graph/outputs/routeD1_kattach_fixed_prefix_nodensity_20260512_230127/\n?? graph/outputs/routeD1_kattach_fixed_prefix_smoke_20260512_201456/\n?? graph/outputs/routeD1_oldbase_currentcode_probe_20260514_110709/\n?? graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/\n?? graph/outputs/routeD2_abnormal_edge_gate_20260513_150610/D2A_FixedD1_LearnableGate_eta03/metrics/edge_stats.csv\n?? graph/outputs/routeD2_abnormal_edge_gate_20260513_150610/D2A_FixedD1_LearnableGate_eta05/metrics/edge_stats.csv\n?? graph/outputs/routeD2_abnormal_edge_gate_20260513_150610/D2B_Pool100_DiagnosticReserve50_GateEta05/metrics/edge_stats.csv\n?? graph/outputs/routeD2_abnormal_edge_gate_20260513_150610/D2B_Pool100_DiagnosticTop20_GateEta05/metrics/edge_stats.csv\n?? graph/outputs/routeD2_abnormal_edge_gate_20260513_150610/D2B_Pool100_PairAbnTop20_GateEta05/metrics/edge_stats.csv\n?? graph/outputs/routeD2_abnormal_edge_gate_smoke_20260513_150033/\n?? graph/outputs/routeG_egatpp_20260512_191918/\n?? graph/outputs/routeG_egatpp_smoke_20260511/\n?? graph/outputs/routeK_candidate_pool_smoke_20260511/\n?? graph/outputs/routeL_abnormal_aux_head_20260513_182507/\n?? graph/outputs/routeL_abnormal_aux_head_smoke_20260513_182323/\n?? graph/outputs/routeL_basecheck_seedfix_20260513_221345/\n?? graph/outputs/routeL_d1_snapshot_basecheck_20260513_230331/\n?? graph/outputs/routeTNSGD_GroupFirst_NodeFeature_20260512_160647/\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A0_NoTNSNodeProfile/config.json\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A0_NoTNSNodeProfile/edges/\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A0_NoTNSNodeProfile/metrics/edge_stats.csv\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A1_TNSBasicNodeProfile/config.json\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A1_TNSBasicNodeProfile/edges/\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/TNS-A1_TNSBasicNodeProfile/metrics/edge_stats.csv\n?? graph/outputs/routeTNS_A_node_profile_20260511_155435/tns_single_feature_ablation_20260512_150845/\n?? graph/routes/routeD1_fresh_repro/",
+  "key_files": [
+    {
+      "relative_path": "artifact/run_config.json",
+      "exists": true,
+      "size_bytes": 3362,
+      "sha256": "cf430d91fa265e79691dd3c2011da1fec73e9ec856a94fc5f516cfed9aaea49f"
+    },
+    {
+      "relative_path": "artifact/run_summary.json",
+      "exists": true,
+      "size_bytes": 2824,
+      "sha256": "b5c72563f78d2955a24fbbe24d3e3639c46ce9540fbf328db8259ecdb995fcb8"
+    },
+    {
+      "relative_path": "artifact/prepared_data/reviews_canonical.csv",
+      "exists": true,
+      "size_bytes": 25303028,
+      "sha256": "4e02f762e1a452d26ca3765503da03fae9c0e535907561a95cee5fca1cbe86b4"
+    },
+    {
+      "relative_path": "artifact/prepared_data/users_canonical.csv",
+      "exists": true,
+      "size_bytes": 372600,
+      "sha256": "d886930d16fca89a591c14647a500435a4a7981e1f0fe92729d638022c255c04"
+    },
+    {
+      "relative_path": "artifact/prepared_data/user_splits.csv",
+      "exists": true,
+      "size_bytes": 91563,
+      "sha256": "ee70c9096f6bdda8efe59c2fd35be04e5ce0a55fb9d0e95f068791f4670ecfe8"
+    },
+    {
+      "relative_path": "artifact/llm_mask/abnormal_token_masks.npy",
+      "exists": true,
+      "size_bytes": 40619136,
+      "sha256": "e34d4b7cac5326f3697da210aafb085bb42cd41c781937db367df4324aea981b"
+    },
+    {
+      "relative_path": "artifact/review_encoder/best_review_encoder.pt",
+      "exists": true,
+      "size_bytes": 551084675,
+      "sha256": "4f43bd6f350ff49df630e7e34c7231caef633ef5f875f37b5fc83a8e56616f2f"
+    },
+    {
+      "relative_path": "artifact/review_encoder/review_encoder_metrics.json",
+      "exists": true,
+      "size_bytes": 429,
+      "sha256": "2b0d3509d38de8955e1c2f4c059063012d8bb5c53762de230adfa6946b582505"
+    },
+    {
+      "relative_path": "artifact/logic_vectors/user_text_vectors.npy",
+      "exists": true,
+      "size_bytes": 6824064,
+      "sha256": "f9b926bcc18612297684b5cc1454a71dc51c711bdd786a718a0f2b6c793aa726"
+    },
+    {
+      "relative_path": "artifact/logic_vectors/user_abnormal_vectors.npy",
+      "exists": true,
+      "size_bytes": 6824064,
+      "sha256": "4d7a2fb18b9af7233fba501b0c31797cb7edb05423d068d814b65b0a8f281c63"
+    },
+    {
+      "relative_path": "artifact/review_scores_enriched.csv",
+      "exists": true,
+      "size_bytes": 6123545,
+      "sha256": "3a5db935697f93a2b97bed739e739178b7b100ce03453e70909db58a61b90046"
+    },
+    {
+      "relative_path": "artifact/user_scores_enriched.csv",
+      "exists": true,
+      "size_bytes": 3271821,
+      "sha256": "a792f348e7cf469f16c56746082410ace6c187438f3de3722e84b87b8d00165c"
+    },
+    {
+      "relative_path": "artifact/edges/LogicAE_CB_edges.csv",
+      "exists": true,
+      "size_bytes": 9174691,
+      "sha256": "3016a92e6052f0c866d964445022b1afc5e83359e08f69f29ddaca6084ca1d5c"
+    },
+    {
+      "relative_path": "artifact/metrics/model_results.csv",
+      "exists": true,
+      "size_bytes": 3285,
+      "sha256": "826416916ed768b623422486c0ff462f443e04ef1c04286accd6a60a687d6736"
+    },
+    {
+      "relative_path": "d1_graph/config.json",
+      "exists": true,
+      "size_bytes": 4220,
+      "sha256": "f253e4a8c8b0fb29438f0908e148bec2494da6698632950b2a54862c226643de"
+    },
+    {
+      "relative_path": "d1_graph/run_config.json",
+      "exists": true,
+      "size_bytes": 4220,
+      "sha256": "f253e4a8c8b0fb29438f0908e148bec2494da6698632950b2a54862c226643de"
+    },
+    {
+      "relative_path": "d1_graph/run_summary.json",
+      "exists": true,
+      "size_bytes": 8232,
+      "sha256": "b63d2183eca53016f0050c398698f5d383648aa07ed731bb1e292e91819c6f7c"
+    },
+    {
+      "relative_path": "d1_graph/edges/LogicAE_CB_edges.csv",
+      "exists": true,
+      "size_bytes": 9174685,
+      "sha256": "9131b30c699b0ec374bb090b85b27f39cc3d16a400e2bc6cb46c1e96298e836b"
+    },
+    {
+      "relative_path": "d1_graph/metrics/model_results.csv",
+      "exists": true,
+      "size_bytes": 1141,
+      "sha256": "bff801f8e9cf08b0b2773fde917183197838e1da4cde46d28e2faa97bf9aec56"
+    }
+  ],
+  "metric_comparison_files": {
+    "csv": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/baseline_metric_comparison.csv",
+    "json": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/baseline_metric_comparison.json",
+    "markdown": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/baseline_metric_comparison.md"
+  }
+}

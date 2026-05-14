@@ -1,0 +1,52 @@
+{
+  "experiment_name": "D1_FRESH_REPRO_STRONG_BASELINE",
+  "experiment_type": "fresh_d1_train",
+  "historical_d1_outputs_used_for_training": false,
+  "reference_d1_metrics_for_audit_only": {
+    "auc": 0.8563709149922789,
+    "ap": 0.858368711617606,
+    "f1": 0.7781715095676824,
+    "recall": 0.823088455772114,
+    "precision": 0.7379032258064516,
+    "source": "routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB"
+  },
+  "d1_floor": {
+    "auc_min": 0.845,
+    "description": "Governance recovered fresh D1 uses fixed review-encoder epoch 2. Historical exact D1 is 0.85637 AUC; recovered fresh D1 should stay within about 0.01 AUC and near historical F1 before downstream encoder/head experiments depend on it."
+  },
+  "base_protocol": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "legacy_roberta_model_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "review_encoder_semantics": "full_text_logic_no_llm_mask",
+    "mask_source": "full_text",
+    "seed": 42,
+    "train_ratio": 0.64,
+    "val_ratio": 0.16,
+    "test_ratio": 0.2,
+    "balance_user_labels": true,
+    "balanced_user_count": 6742,
+    "min_user_reviews": 3,
+    "min_product_reviews": 3,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "logic_threshold_mode": "quantile",
+    "logic_threshold_quantile": 0.6,
+    "logic_threshold_value": 0.3,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "disable_graph_reweighting": true,
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "learning_rate": 2e-05,
+    "num_epochs": 2,
+    "patience": 2,
+    "device": "auto",
+    "review_checkpoint_policy": "fixed_epoch2_recovered_d1"
+  }
+}

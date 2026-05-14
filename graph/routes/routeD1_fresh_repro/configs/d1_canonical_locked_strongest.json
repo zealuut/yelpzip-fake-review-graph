@@ -1,0 +1,53 @@
+{
+  "experiment_name": "D1_CANONICAL_LOCKED_STRONGEST_ROUTE_D_0P85637",
+  "experiment_type": "canonical_locked_d1_base",
+  "stable_alias": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_fresh_repro_CANONICAL_D1",
+  "timestamped_output_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_fresh_repro_canonical_strongest_20260514_0p856370",
+  "base_artifact_source_for_checkpoint_vectors_and_prepared_data": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/yelpzip_balanced_current_graph_no_reweight_20260502_160620",
+  "strongest_graph_source_for_edges_metrics_and_route_config": "/home/xyz/HuChao (2)/Bert-TextClassification/graph/outputs/routeD_tns_guided_logic_egat_20260504_200855/D1_EGAT_Base_LogicAE_CB",
+  "manifest": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_fresh_repro_canonical_strongest_20260514_0p856370/canonical_d1_base_manifest.json",
+  "used_as_current_best_d1_result": true,
+  "fresh_retrained_in_this_directory": false,
+  "construction": "Copied the complete old D1 base artifact, then overlaid the RouteD D1_EGAT_Base_LogicAE_CB edges/metrics/config that produced AUC 0.8563709149922789.",
+  "promotion_reason": "User clarified that the canonical D1 must be the strongest 0.8563709149922789 RouteD D1 version, not the 0.851758 base-artifact graph result.",
+  "target_graph_row": {
+    "review_encoder": "llm_masked_logic",
+    "model_name": "current_egat_edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "threshold": 0.425508439540863,
+    "val_auc": 0.8432005463076712,
+    "val_ap": 0.8430096803332938,
+    "auc": 0.8563709149922789,
+    "ap": 0.858368711617606,
+    "recall": 0.823088455772114,
+    "precision": 0.7379032258064516,
+    "f1": 0.7781715095676824,
+    "accuracy": 0.7653673163418291,
+    "num_train_users": 4264,
+    "num_val_users": 1066,
+    "num_test_users": 1334,
+    "num_fake_train": 2132,
+    "num_fake_val": 533,
+    "num_fake_test": 667,
+    "backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "use_abnormal_edge_weight": false,
+    "use_abnormal_gate": false,
+    "use_abnormal_value_gate": false,
+    "use_abnormal_attention_bias": false,
+    "abnormal_score_source": "auto"
+  },
+  "review_encoder_epoch_from_base_artifact": 2,
+  "review_encoder_val_metrics_from_base_artifact": {
+    "auc": 0.753835373,
+    "ap": 0.614354001,
+    "recall": 0.6944444444,
+    "precision": 0.5534741144,
+    "f1": 0.6159969674,
+    "accuracy": 0.6893590923
+  },
+  "strict_reuse_policy": {
+    "allowed": "Use this pack as the canonical fixed D1 baseline and current best D1 result for fixed-artifact comparisons and graph/topology diagnostics.",
+    "not_allowed": "Do not claim this directory was freshly retrained; do not reuse its abnormal/text vectors when an experiment changes review encoder, abnormal head, aux loss, masks, or vector-producing logic."
+  }
+}

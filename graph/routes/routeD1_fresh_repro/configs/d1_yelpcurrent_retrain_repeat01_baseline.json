@@ -1,0 +1,29 @@
+{
+  "experiment_name": "D1_YELPCURRENT_RETRAIN_REPEAT01_STRONG_BASELINE",
+  "experiment_type": "fresh_yelpcurrent_artifact_plus_d1_graph_baseline",
+  "stable_alias": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_fresh_repro_CANONICAL_D1",
+  "baseline_alias": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_YELPCURRENT_RETRAIN_BASELINE",
+  "timestamped_output_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204",
+  "artifact_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/artifact",
+  "d1_graph_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeD1_yelpcurrent_retrain_baseline_repeat01_20260514_183204/d1_graph",
+  "source_multirun_root": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix",
+  "source_artifact_repeat01": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/artifacts/yelpcurrent_retrain_repeat_01",
+  "source_d1_graph_repeat01": "/home/xyz/HuChao (2)/d1_ce6a9d6_yelpcurrent_retrain/graph/outputs/yelpcurrent_retrain_artifact_to_d1_multirun_20260514_183204_pyfix/routed_d1/repeat_01_D1_EGAT_Base_LogicAE_CB",
+  "fresh_retrained_artifact": true,
+  "used_as_current_governance_d1_baseline": true,
+  "baseline_metrics": {
+    "d1_auc": 0.8545569793813736,
+    "d1_ap": 0.8522126584244006,
+    "d1_f1": 0.7827278958190541,
+    "d1_recall": 0.856071964017991,
+    "d1_precision": 0.7209595959595959,
+    "review_epoch": 1,
+    "review_val_auc": 0.7496077001,
+    "review_val_ap": 0.6097301352,
+    "review_val_f1": 0.6160561776
+  },
+  "strict_reuse_policy": {
+    "allowed": "Use this baseline as the governance strong D1 baseline for downstream fixed-D1 graph and route comparisons.",
+    "not_allowed": "If an experiment changes review encoder, abnormal head, aux loss, mask semantics, vector dimension, tokenizer/max length, or vector-producing logic, regenerate the artifact and compare against a paired no-change control."
+  }
+}
