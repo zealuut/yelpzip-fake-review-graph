@@ -1,5 +1,13 @@
 {
   "description": "Phase-1 D1 abnormal aux-head route. Train D1 full-text logic encoder with an abnormal auxiliary review-label loss, then run D1 Base_LogicAE_CB graph.",
+  "strict_base_policy": "Strict D1 base means fresh training under the D1 ce6a9d6 protocol in the same environment. Do not reuse frozen review vectors, graph edges, or checkpoints for aux-head experiments; artifact reuse is only acceptable for graph-only topology diagnostics.",
+  "basecheck": {
+    "enabled": true,
+    "experiment_name": "D1_NO_AUX_fresh_control",
+    "reference_graph_auc": 0.8563709149922789,
+    "min_graph_auc": 0.85,
+    "notes": "Fresh no-aux D1 control. If this does not reproduce the D1 floor, stop before running aux-head variants."
+  },
   "base_protocol": {
     "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
     "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",

@@ -19,6 +19,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config_path", default=str(DEFAULT_CONFIG))
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--smoke_test", action="store_true")
+    parser.add_argument("--skip_basecheck", action="store_true")
+    parser.add_argument("--basecheck_only", action="store_true")
     return parser.parse_args()
 
 
@@ -54,6 +56,12 @@ def _load_review_metrics(exp_dir: Path) -> dict[str, Any]:
 
 
 def _load_graph_row(exp_dir: Path) -> dict[str, Any]:
+    csv_path = exp_dir / "metrics" / "model_results.csv"
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+        if not df.empty:
+            target = df.loc[df.get("edge_set", "") == "Base_LogicAE_CB"]
+            return (target.iloc[-1] if not target.empty else df.iloc[-1]).to_dict()
     summary_path = exp_dir / "run_summary.json"
     if summary_path.exists():
         try:
@@ -63,14 +71,7 @@ def _load_graph_row(exp_dir: Path) -> dict[str, Any]:
                 return row
         except Exception:
             pass
-    csv_path = exp_dir / "metrics" / "model_results.csv"
-    if not csv_path.exists():
-        return {}
-    df = pd.read_csv(csv_path)
-    if df.empty:
-        return {}
-    target = df.loc[df.get("edge_set", "") == "Base_LogicAE_CB"]
-    return (target.iloc[-1] if not target.empty else df.iloc[-1]).to_dict()
+    return {}
 
 
 def _summary_row(exp_dir: Path, variant: dict[str, Any], resolved: dict[str, Any]) -> dict[str, Any]:
@@ -171,6 +172,65 @@ def _resolve_variant(defaults: dict[str, Any], variant: dict[str, Any]) -> dict[
     return resolved
 
 
+def _run_variant(
+    *,
+    args: argparse.Namespace,
+    cfg: dict[str, Any],
+    output_root: Path,
+    variant: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    experiment_name = str(variant["experiment_name"])
+    exp_dir = output_root / experiment_name
+    resolved = _resolve_variant(cfg.get("defaults", {}), variant)
+    if args.resume and (exp_dir / "run_summary.json").exists():
+        print(f"[resume] skip completed {experiment_name}", flush=True)
+        row = _summary_row(exp_dir, variant, resolved)
+        rows.append(row)
+        return row
+
+    print(f"starting {experiment_name} resolved={resolved}", flush=True)
+    _save_json(
+        exp_dir / "routeL_variant_config.json",
+        {
+            "experiment_name": experiment_name,
+            "resolved": resolved,
+            "variant": variant,
+            "base_protocol": cfg["base_protocol"],
+            "strict_base_policy": cfg.get("strict_base_policy"),
+        },
+    )
+    cmd = _build_command(
+        exp_dir=exp_dir,
+        cfg=cfg,
+        variant=variant,
+        resolved=resolved,
+        smoke_test=args.smoke_test,
+    )
+    print("command=" + " ".join(str(part) for part in cmd), flush=True)
+    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+    row = _summary_row(exp_dir, variant, resolved)
+    rows.append(row)
+    print(
+        f"completed {experiment_name} graph_auc={row.get('graph_AUC')} aux_val_auc={row.get('aux_val_auc')}",
+        flush=True,
+    )
+    pd.DataFrame(rows).to_csv(output_root / "routeL_abnormal_aux_head_summary.csv", index=False)
+    return row
+
+
+def _basecheck_variant(cfg: dict[str, Any]) -> dict[str, Any]:
+    basecheck = cfg.get("basecheck", {})
+    return {
+        "experiment_name": basecheck.get("experiment_name", "D1_NO_AUX_fresh_control"),
+        "abnormal_aux_lambda": 0.0,
+        "notes": basecheck.get(
+            "notes",
+            "Fresh D1 no-aux control. This must reproduce D1 before aux-head ablations are trusted.",
+        ),
+    }
+
+
 def main() -> None:
     args = parse_args()
     cfg = _load_json(Path(args.config_path))
@@ -179,40 +239,40 @@ def main() -> None:
     variants = cfg["variants"][:1] if args.smoke_test else cfg["variants"]
 
     rows: list[dict[str, Any]] = []
-    for variant in variants:
-        experiment_name = str(variant["experiment_name"])
-        exp_dir = output_root / experiment_name
-        resolved = _resolve_variant(cfg.get("defaults", {}), variant)
-        if args.resume and (exp_dir / "run_summary.json").exists():
-            print(f"[resume] skip completed {experiment_name}", flush=True)
-            rows.append(_summary_row(exp_dir, variant, resolved))
-            continue
-        print(f"starting {experiment_name} resolved={resolved}", flush=True)
-        _save_json(
-            exp_dir / "routeL_variant_config.json",
-            {
-                "experiment_name": experiment_name,
-                "resolved": resolved,
-                "variant": variant,
-                "base_protocol": cfg["base_protocol"],
-            },
-        )
-        cmd = _build_command(
-            exp_dir=exp_dir,
+    basecheck = cfg.get("basecheck", {})
+    if basecheck.get("enabled", True) and not args.skip_basecheck:
+        row = _run_variant(
+            args=args,
             cfg=cfg,
-            variant=variant,
-            resolved=resolved,
-            smoke_test=args.smoke_test,
+            output_root=output_root,
+            variant=_basecheck_variant(cfg),
+            rows=rows,
         )
-        print("command=" + " ".join(str(part) for part in cmd), flush=True)
-        subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
-        row = _summary_row(exp_dir, variant, resolved)
-        rows.append(row)
-        print(
-            f"completed {experiment_name} graph_auc={row.get('graph_AUC')} aux_val_auc={row.get('aux_val_auc')}",
-            flush=True,
+        graph_auc = row.get("graph_AUC")
+        min_graph_auc = basecheck.get("min_graph_auc")
+        failed = (
+            not args.smoke_test
+            and min_graph_auc is not None
+            and (graph_auc is None or float(graph_auc) < float(min_graph_auc))
         )
-        pd.DataFrame(rows).to_csv(output_root / "routeL_abnormal_aux_head_summary.csv", index=False)
+        if failed:
+            failure = {
+                "reason": "fresh D1 no-aux basecheck did not reproduce the required D1 floor",
+                "graph_AUC": graph_auc,
+                "min_graph_auc": min_graph_auc,
+                "reference_graph_auc": basecheck.get("reference_graph_auc"),
+                "strict_base_policy": cfg.get("strict_base_policy"),
+                "basecheck_output_dir": row.get("output_dir"),
+            }
+            _save_json(output_root / "BASECHECK_FAILED.json", failure)
+            pd.DataFrame(rows).to_csv(output_root / "routeL_abnormal_aux_head_summary.csv", index=False)
+            raise SystemExit(json.dumps(failure, ensure_ascii=False))
+        if args.basecheck_only:
+            pd.DataFrame(rows).to_csv(output_root / "routeL_abnormal_aux_head_summary.csv", index=False)
+            return
+
+    for variant in variants:
+        _run_variant(args=args, cfg=cfg, output_root=output_root, variant=variant, rows=rows)
 
     _save_json(
         output_root / "run_summary.json",
