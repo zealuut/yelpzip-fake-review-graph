@@ -1,0 +1,143 @@
+{
+  "experiment_name": "routeV_V1_vec_separability",
+  "experiment_type": "fresh_d1_train",
+  "base_config": "graph/routes/routeV_vector_quality/configs/routeV_variants.json",
+  "base_protocol": "d1_ce6a9d6",
+  "comparison_baseline": "V_control",
+  "variant_family": {
+    "canonical_variant": "V1a_supcon_reg",
+    "secondary_variant": "V1b_triplet_reg"
+  },
+  "objective": {
+    "review_loss": "review_bce",
+    "review_loss_label_source": "prepared.review_df.review_label",
+    "vector_regularizer": "user-level vector separability over batch-grouped review vectors",
+    "vector_regularizer_label_source": "prepared.user_df.user_label",
+    "forbidden_regularizer_label_source": "review_label.max_per_user",
+    "total_loss": "review_bce + lambda_vec * vector_separability_loss"
+  },
+  "checkpoint_selection": {
+    "name": "user_vector_proxy",
+    "selected_field": "user_auc",
+    "label_column": "user_label",
+    "label_source": "prepared.user_df.user_label"
+  },
+  "variants": [
+    {
+      "name": "V1a_supcon_reg",
+      "vector_reg_type": "supcon",
+      "vector_reg_lambda": 0.1,
+      "vector_reg_temperature": 0.1,
+      "dual_head": false
+    },
+    {
+      "name": "V1b_triplet_reg",
+      "vector_reg_type": "triplet",
+      "vector_reg_lambda": 0.1,
+      "vector_reg_margin": 0.3,
+      "dual_head": false
+    }
+  ],
+  "artifact_reuse": {
+    "experiment_type": "fresh_d1_train",
+    "policy": "One row per artifact class/path; learned vectors/checkpoints/edges are regenerated for strict RouteV variants.",
+    "items": [
+      {
+        "path": "prepared_data/reviews_canonical.csv",
+        "class": "canonical_data_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Source data, filtering, balancing, and split policy are unchanged under D1 ce6a9d6."
+      },
+      {
+        "path": "prepared_data/users_canonical.csv",
+        "class": "canonical_user_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Source of explicit prepared.user_df.user_label for vector-quality labels."
+      },
+      {
+        "path": "prepared_data/user_splits.csv",
+        "class": "canonical_user_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Used to keep train/val/test users comparable when D1 split policy is unchanged."
+      },
+      {
+        "path": "review_encoder/best_review_encoder.pt",
+        "class": "review_checkpoint",
+        "reuse_mode": "regenerated",
+        "reason": "RouteV variants train a fresh encoder checkpoint under their declared objective."
+      },
+      {
+        "path": "logic_vectors/review_text_vectors.npy",
+        "class": "learned_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Emitted by the freshly trained review encoder."
+      },
+      {
+        "path": "logic_vectors/user_text_vectors.npy",
+        "class": "learned_user_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Aggregated from newly generated review text vectors."
+      },
+      {
+        "path": "logic_vectors/review_abnormal_vectors.npy",
+        "class": "learned_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "RouteV vector-quality target; regenerated for each variant."
+      },
+      {
+        "path": "logic_vectors/user_abnormal_vectors.npy",
+        "class": "learned_user_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Aggregated from newly generated review abnormal vectors."
+      },
+      {
+        "path": "review_scores_enriched.csv",
+        "class": "review_scores",
+        "reuse_mode": "regenerated",
+        "reason": "p_fake_review, review_gate, and evidence_score come from the current fresh encoder."
+      },
+      {
+        "path": "edges/TextSim_edges.csv",
+        "class": "text_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "Depends on regenerated user_text_vectors."
+      },
+      {
+        "path": "edges/CB_edges.csv",
+        "class": "combined_behavior_text_edges",
+        "reuse_mode": "regenerated",
+        "reason": "Depends on TextSim candidates and current user features."
+      },
+      {
+        "path": "edges/LogicAE_CB_edges.csv",
+        "class": "abnormal_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "Depends on regenerated user_abnormal_vectors."
+      },
+      {
+        "path": "edges/TNSGuided_LogicAE_CB_edges.csv",
+        "class": "tns_guided_abnormal_edges",
+        "reuse_mode": "regenerated",
+        "reason": "Depends on current LogicAE/review-score context."
+      },
+      {
+        "path": "edges/UPU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "Does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; runner rebuilds it into the output."
+      },
+      {
+        "path": "edges/UTU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "Does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; runner rebuilds it into the output."
+      },
+      {
+        "path": "edges/USU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "Does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; runner rebuilds it into the output."
+      }
+    ]
+  }
+}
