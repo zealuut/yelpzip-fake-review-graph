@@ -1,0 +1,409 @@
+{
+  "status": "ok",
+  "variant": "V0_proxy_checkpoint",
+  "output_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint",
+  "review_count": 39667,
+  "user_count": 6664,
+  "selected_checkpoint": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+  "checkpoint_selection": "user_vector_proxy",
+  "experiment_type": "fresh_d1_train",
+  "strict_label_policy": {
+    "user_label_source": "prepared.user_df.user_label",
+    "review_bce_label_source": "prepared.review_df.review_label",
+    "vector_proxy_label_column": "user_label",
+    "vector_regularizer_label_source": "batch.user_label",
+    "forbidden_vector_label_source": "review_label.max_per_user"
+  },
+  "artifact_reuse": {
+    "experiment_type": "fresh_d1_train",
+    "policy": "RouteV regenerates all learned/vector/edge artifacts for every variant; only unchanged data protocol artifacts and static behavior components are strict-reusable.",
+    "items": [
+      {
+        "path": "prepared_data/reviews_canonical.csv",
+        "class": "canonical_data_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Source data, filtering, balancing, and split policy are unchanged under D1 ce6a9d6."
+      },
+      {
+        "path": "prepared_data/users_canonical.csv",
+        "class": "canonical_user_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Used as the explicit source of user_label for RouteV proxy/regularizer semantics."
+      },
+      {
+        "path": "review_encoder/best_review_encoder.pt",
+        "class": "review_checkpoint",
+        "reuse_mode": "regenerated",
+        "reason": "Every RouteV variant trains a fresh encoder checkpoint under its declared objective."
+      },
+      {
+        "path": "logic_vectors/review_text_vectors.npy",
+        "class": "learned_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Text vectors are emitted by the freshly trained review encoder."
+      },
+      {
+        "path": "logic_vectors/user_text_vectors.npy",
+        "class": "learned_user_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "User text vectors are aggregated from the freshly emitted review text vectors."
+      },
+      {
+        "path": "logic_vectors/review_abnormal_vectors.npy",
+        "class": "learned_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Abnormal vectors are the RouteV optimization target and must be regenerated."
+      },
+      {
+        "path": "logic_vectors/user_abnormal_vectors.npy",
+        "class": "learned_user_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "User abnormal vectors are aggregated from newly generated review vectors."
+      },
+      {
+        "path": "review_scores_enriched.csv",
+        "class": "review_scores",
+        "reuse_mode": "regenerated",
+        "reason": "p_fake_review, review_gate, and evidence_score come from the current fresh encoder."
+      },
+      {
+        "path": "edges/TextSim_edges.csv",
+        "class": "text_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "TextSim edges depend on regenerated user_text_vectors."
+      },
+      {
+        "path": "edges/CB_edges.csv",
+        "class": "combined_behavior_text_edges",
+        "reuse_mode": "regenerated",
+        "reason": "CB depends on TextSim candidates and current user features."
+      },
+      {
+        "path": "edges/LogicAE_CB_edges.csv",
+        "class": "abnormal_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "LogicAE_CB depends on regenerated user_abnormal_vectors."
+      },
+      {
+        "path": "edges/TNSGuided_LogicAE_CB_edges.csv",
+        "class": "tns_guided_abnormal_edges",
+        "reuse_mode": "regenerated",
+        "reason": "TNS-guided logic edges depend on current LogicAE/review-score context."
+      },
+      {
+        "path": "edges/UPU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "UPU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      },
+      {
+        "path": "edges/UTU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "UTU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      },
+      {
+        "path": "edges/USU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "USU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      }
+    ]
+  },
+  "use_graph_vector": false,
+  "baseline_metadata": {
+    "route": "routeV_vector_quality",
+    "variant": "V0_proxy_checkpoint",
+    "is_route_baseline": false,
+    "is_route_control": false,
+    "control_id": null,
+    "control_role": null,
+    "comparison_control": "V_control",
+    "reference_route_baseline": "graph/outputs/routeBaseline_D1_FRESH_RETRAIN_BASELINE",
+    "reference_route_baseline_id": "ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5",
+    "reference_route_baseline_mode": "promote-fresh-bestof5",
+    "reference_route_baseline_fresh_retrained_artifact": true,
+    "reference_route_baseline_fixed_artifact_graph_only": false,
+    "comparison_scope": "Interpret V0/V1/V2 only after V_control passes. V_control is copied from the same promoted route baseline construction: fresh artifact plus paired D1 graph-stage output.",
+    "route_contract": {
+      "role": "Route-local fresh D1 vector-quality experiments.",
+      "baseline_variant": "V_control",
+      "baseline_role": "RouteV paired no-change control constructed from the promoted route baseline pack.",
+      "global_baseline_route": "graph/routes/baseline",
+      "global_baseline_role": "Primary route baseline is the promoted best-of-5 full fresh retrain plus RouteD/D1 graph-stage result; fixed-artifact packs are audit references only.",
+      "comparison_rule": "Interpret V0/V1/V2 only after V_control passes. V_control is copied from the same promoted route baseline construction: fresh artifact plus paired D1 graph-stage output."
+    },
+    "baseline_reference": {
+      "route_baseline": "graph/outputs/routeBaseline_D1_FRESH_RETRAIN_BASELINE",
+      "route_baseline_id": "ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5",
+      "route_baseline_mode": "promote-fresh-bestof5",
+      "route_baseline_selected_repeat": 1,
+      "route_baseline_fresh_retrained_artifact": true,
+      "route_baseline_fixed_artifact_graph_only": false,
+      "route_baseline_target_row": {
+        "edge_set": "Base_LogicAE_CB",
+        "model_name": "current_egat_edge_aware_gat",
+        "auc": 0.8545569793813736,
+        "ap": 0.8522126584244006,
+        "f1": 0.7827278958190541,
+        "recall": 0.856071964017991,
+        "precision": 0.7209595959595959
+      },
+      "legacy_canonical_governance_d1": "graph/outputs/routeD1_fresh_repro_CANONICAL_D1",
+      "audit_fixed_artifact_baseline": "graph/outputs/baseline_D1_STRONGEST_0p856370_20260504_200855",
+      "note": "V_control is constructed from the promoted fresh route baseline pack, not from the old RouteV-local review-training loop or the fixed-artifact audit pack."
+    }
+  },
+  "proxy_selection": {
+    "selection_metric": "train_to_val_user_vector_proxy",
+    "best_checkpoint": {
+      "epoch": 1,
+      "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+      "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_01",
+      "user_auc": 0.7043215330407021,
+      "user_ap": 0.6922725326586212,
+      "label_source": "user_label",
+      "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+      "linear_probe_val_auc": 0.7043215330407021,
+      "linear_probe_val_ap": 0.6922725326586212,
+      "centroid_val_auc": 0.6848382021127182,
+      "centroid_val_ap": 0.6779850124313174,
+      "norm_val_auc": 0.516512430963536,
+      "train_split": "train",
+      "eval_split": "val",
+      "top_m": 3,
+      "num_train_users": 4264,
+      "num_eval_users": 1066
+    },
+    "all_checkpoints": [
+      {
+        "epoch": 1,
+        "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+        "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_01",
+        "user_auc": 0.7043215330407021,
+        "user_ap": 0.6922725326586212,
+        "label_source": "user_label",
+        "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+        "linear_probe_val_auc": 0.7043215330407021,
+        "linear_probe_val_ap": 0.6922725326586212,
+        "centroid_val_auc": 0.6848382021127182,
+        "centroid_val_ap": 0.6779850124313174,
+        "norm_val_auc": 0.516512430963536,
+        "train_split": "train",
+        "eval_split": "val",
+        "top_m": 3,
+        "num_train_users": 4264,
+        "num_eval_users": 1066
+      },
+      {
+        "epoch": 2,
+        "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch02.pt",
+        "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_02",
+        "user_auc": 0.6923112123313468,
+        "user_ap": 0.6806402075103233,
+        "label_source": "user_label",
+        "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+        "linear_probe_val_auc": 0.6923112123313468,
+        "linear_probe_val_ap": 0.6806402075103233,
+        "centroid_val_auc": 0.693476340161006,
+        "centroid_val_ap": 0.6903158930934028,
+        "norm_val_auc": 0.549498572630408,
+        "train_split": "train",
+        "eval_split": "val",
+        "top_m": 3,
+        "num_train_users": 4264,
+        "num_eval_users": 1066
+      },
+      {
+        "epoch": 3,
+        "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch03.pt",
+        "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_03",
+        "user_auc": 0.666227837051065,
+        "user_ap": 0.6257720902124921,
+        "label_source": "user_label",
+        "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+        "linear_probe_val_auc": 0.666227837051065,
+        "linear_probe_val_ap": 0.6257720902124921,
+        "centroid_val_auc": 0.6940430639693899,
+        "centroid_val_ap": 0.6694947840560658,
+        "norm_val_auc": 0.5763493130673838,
+        "train_split": "train",
+        "eval_split": "val",
+        "top_m": 3,
+        "num_train_users": 4264,
+        "num_eval_users": 1066
+      }
+    ],
+    "use_graph_vector": false
+  },
+  "selected_review_metrics": {
+    "epoch": 1,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+    "train_loss": 0.7692671982527837,
+    "train_reg_loss": 0.0,
+    "val_loss": 0.7500996827787044,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.7294115617438832,
+      "ap": 0.599392141872966,
+      "recall": 0.674220661772529,
+      "precision": 0.5461989312187554,
+      "f1": 0.6034950716632541,
+      "accuracy": 0.6704005699810006
+    },
+    "val_metrics": {
+      "auc": 0.7507233892097593,
+      "ap": 0.6081332036060683,
+      "recall": 0.7405982905982906,
+      "precision": 0.534381745297564,
+      "f1": 0.6208131828765896,
+      "accuracy": 0.6754063170806501
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.0,
+    "reg_vector_field": "review_vector",
+    "routeV_proxy_selection": {
+      "epoch": 1,
+      "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+      "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_01",
+      "user_auc": 0.7043215330407021,
+      "user_ap": 0.6922725326586212,
+      "label_source": "user_label",
+      "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+      "linear_probe_val_auc": 0.7043215330407021,
+      "linear_probe_val_ap": 0.6922725326586212,
+      "centroid_val_auc": 0.6848382021127182,
+      "centroid_val_ap": 0.6779850124313174,
+      "norm_val_auc": 0.516512430963536,
+      "train_split": "train",
+      "eval_split": "val",
+      "top_m": 3,
+      "num_train_users": 4264,
+      "num_eval_users": 1066
+    }
+  },
+  "best_graph_model": {
+    "review_encoder": "llm_masked_logic",
+    "model_name": "current_egat_edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "threshold": 0.4367698132991791,
+    "val_auc": 0.863753964426641,
+    "val_ap": 0.8509279586984235,
+    "auc": 0.8534263602831269,
+    "ap": 0.8516464336682249,
+    "recall": 0.808095952023988,
+    "precision": 0.7424242424242424,
+    "f1": 0.7738693467336684,
+    "accuracy": 0.7638680659670165,
+    "num_train_users": 4264,
+    "num_val_users": 1066,
+    "num_test_users": 1334,
+    "num_fake_train": 2132,
+    "num_fake_val": 533,
+    "num_fake_test": 667,
+    "backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "use_abnormal_edge_weight": false,
+    "use_abnormal_gate": false,
+    "use_abnormal_value_gate": false,
+    "use_abnormal_attention_bias": false,
+    "abnormal_score_source": "auto"
+  },
+  "best_edge_type_by_fake_fake_ratio": {
+    "edge_type": "LogicAE_CB",
+    "num_edges": 89965,
+    "avg_degree": 14.571590540978296,
+    "isolated_user_count": 490,
+    "fake_fake_edges": 30841,
+    "fake_real_edges": 37239,
+    "real_real_edges": 21885,
+    "fake_fake_ratio": 0.34281109320291225,
+    "fake_real_ratio": 0.4139276385260935,
+    "real_real_ratio": 0.24326126827099429,
+    "same_label_ratio": 0.5860723614739065,
+    "avg_weight": 0.6349795515581123
+  },
+  "training_history": [
+    {
+      "epoch": 1,
+      "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+      "train_loss": 0.7692671982527837,
+      "train_reg_loss": 0.0,
+      "val_loss": 0.7500996827787044,
+      "val_reg_loss": 0.0,
+      "train_metrics": {
+        "auc": 0.7294115617438832,
+        "ap": 0.599392141872966,
+        "recall": 0.674220661772529,
+        "precision": 0.5461989312187554,
+        "f1": 0.6034950716632541,
+        "accuracy": 0.6704005699810006
+      },
+      "val_metrics": {
+        "auc": 0.7507233892097593,
+        "ap": 0.6081332036060683,
+        "recall": 0.7405982905982906,
+        "precision": 0.534381745297564,
+        "f1": 0.6208131828765896,
+        "accuracy": 0.6754063170806501
+      },
+      "checkpoint_selection": "user_vector_proxy",
+      "vector_reg_lambda": 0.0,
+      "reg_vector_field": "review_vector"
+    },
+    {
+      "epoch": 2,
+      "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch02.pt",
+      "train_loss": 0.7123529376713365,
+      "train_reg_loss": 0.0,
+      "val_loss": 0.7377248602170571,
+      "val_reg_loss": 0.0,
+      "train_metrics": {
+        "auc": 0.7794058597740599,
+        "ap": 0.6627520086244997,
+        "recall": 0.7212469411639536,
+        "precision": 0.5921558350803634,
+        "f1": 0.6503573655681872,
+        "accuracy": 0.7114867004433185
+      },
+      "val_metrics": {
+        "auc": 0.7556228974808602,
+        "ap": 0.6207422131789632,
+        "recall": 0.6735042735042736,
+        "precision": 0.5640658554044381,
+        "f1": 0.6139462407479548,
+        "accuracy": 0.6961054891137688
+      },
+      "checkpoint_selection": "user_vector_proxy",
+      "vector_reg_lambda": 0.0,
+      "reg_vector_field": "review_vector"
+    },
+    {
+      "epoch": 3,
+      "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch03.pt",
+      "train_loss": 0.631233648560408,
+      "train_reg_loss": 0.0,
+      "val_loss": 0.7960494736246034,
+      "val_reg_loss": 0.0,
+      "train_metrics": {
+        "auc": 0.8360238516365224,
+        "ap": 0.7398106575211147,
+        "recall": 0.7682732205553783,
+        "precision": 0.65277526667872,
+        "f1": 0.7058306045647817,
+        "accuracy": 0.761755858138062
+      },
+      "val_metrics": {
+        "auc": 0.7519262958466689,
+        "ap": 0.6096384601844019,
+        "recall": 0.6465811965811966,
+        "precision": 0.564131245339299,
+        "f1": 0.6025487853444843,
+        "accuracy": 0.6939589083103342
+      },
+      "checkpoint_selection": "user_vector_proxy",
+      "vector_reg_lambda": 0.0,
+      "reg_vector_field": "review_vector"
+    }
+  ]
+}

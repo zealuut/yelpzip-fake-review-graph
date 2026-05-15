@@ -1,0 +1,83 @@
+[
+  {
+    "epoch": 1,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+    "train_loss": 0.7692671982527837,
+    "train_reg_loss": 0.0,
+    "val_loss": 0.7500996827787044,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.7294115617438832,
+      "ap": 0.599392141872966,
+      "recall": 0.674220661772529,
+      "precision": 0.5461989312187554,
+      "f1": 0.6034950716632541,
+      "accuracy": 0.6704005699810006
+    },
+    "val_metrics": {
+      "auc": 0.7507233892097593,
+      "ap": 0.6081332036060683,
+      "recall": 0.7405982905982906,
+      "precision": 0.534381745297564,
+      "f1": 0.6208131828765896,
+      "accuracy": 0.6754063170806501
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.0,
+    "reg_vector_field": "review_vector"
+  },
+  {
+    "epoch": 2,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch02.pt",
+    "train_loss": 0.7123529376713365,
+    "train_reg_loss": 0.0,
+    "val_loss": 0.7377248602170571,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.7794058597740599,
+      "ap": 0.6627520086244997,
+      "recall": 0.7212469411639536,
+      "precision": 0.5921558350803634,
+      "f1": 0.6503573655681872,
+      "accuracy": 0.7114867004433185
+    },
+    "val_metrics": {
+      "auc": 0.7556228974808602,
+      "ap": 0.6207422131789632,
+      "recall": 0.6735042735042736,
+      "precision": 0.5640658554044381,
+      "f1": 0.6139462407479548,
+      "accuracy": 0.6961054891137688
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.0,
+    "reg_vector_field": "review_vector"
+  },
+  {
+    "epoch": 3,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch03.pt",
+    "train_loss": 0.631233648560408,
+    "train_reg_loss": 0.0,
+    "val_loss": 0.7960494736246034,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.8360238516365224,
+      "ap": 0.7398106575211147,
+      "recall": 0.7682732205553783,
+      "precision": 0.65277526667872,
+      "f1": 0.7058306045647817,
+      "accuracy": 0.761755858138062
+    },
+    "val_metrics": {
+      "auc": 0.7519262958466689,
+      "ap": 0.6096384601844019,
+      "recall": 0.6465811965811966,
+      "precision": 0.564131245339299,
+      "f1": 0.6025487853444843,
+      "accuracy": 0.6939589083103342
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.0,
+    "reg_vector_field": "review_vector"
+  }
+]

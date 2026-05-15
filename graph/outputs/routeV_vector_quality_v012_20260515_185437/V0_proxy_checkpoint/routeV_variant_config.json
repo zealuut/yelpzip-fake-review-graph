@@ -1,0 +1,195 @@
+{
+  "experiment_type": "fresh_d1_train",
+  "variant": {
+    "name": "V0_proxy_checkpoint",
+    "description": "Same training as D1, but checkpoint selected by user-level vector AUC proxy.",
+    "comparison_baseline": "V_control",
+    "checkpoint_selection": "user_vector_proxy",
+    "proxy_metric": "train_user_linear_probe_eval_val_auc",
+    "proxy_label_column": "user_label",
+    "proxy_label_source": "prepared.user_df.user_label",
+    "proxy_vector_source": "user-level top-m aggregation of abnormal review vectors",
+    "vector_reg_lambda": 0.0,
+    "dual_head": false
+  },
+  "shared": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "mask_source": "full_text",
+    "seed": 42,
+    "train_ratio": 0.64,
+    "val_ratio": 0.16,
+    "test_ratio": 0.2,
+    "balance_user_labels": true,
+    "balanced_user_count": 6742,
+    "min_user_reviews": 3,
+    "min_product_reviews": 3,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "logic_threshold_mode": "quantile",
+    "logic_threshold_quantile": 0.6,
+    "logic_threshold_value": 0.3,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "disable_graph_reweighting": true,
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "learning_rate": 2e-05,
+    "num_epochs": 3,
+    "patience": 2,
+    "device": "auto",
+    "smoke_max_users": 0,
+    "debug_use_empty_mask": false
+  },
+  "baseline_metadata": {
+    "route": "routeV_vector_quality",
+    "variant": "V0_proxy_checkpoint",
+    "is_route_baseline": false,
+    "is_route_control": false,
+    "control_id": null,
+    "control_role": null,
+    "comparison_control": "V_control",
+    "reference_route_baseline": "graph/outputs/routeBaseline_D1_FRESH_RETRAIN_BASELINE",
+    "reference_route_baseline_id": "ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5",
+    "reference_route_baseline_mode": "promote-fresh-bestof5",
+    "reference_route_baseline_fresh_retrained_artifact": true,
+    "reference_route_baseline_fixed_artifact_graph_only": false,
+    "comparison_scope": "Interpret V0/V1/V2 only after V_control passes. V_control is copied from the same promoted route baseline construction: fresh artifact plus paired D1 graph-stage output.",
+    "route_contract": {
+      "role": "Route-local fresh D1 vector-quality experiments.",
+      "baseline_variant": "V_control",
+      "baseline_role": "RouteV paired no-change control constructed from the promoted route baseline pack.",
+      "global_baseline_route": "graph/routes/baseline",
+      "global_baseline_role": "Primary route baseline is the promoted best-of-5 full fresh retrain plus RouteD/D1 graph-stage result; fixed-artifact packs are audit references only.",
+      "comparison_rule": "Interpret V0/V1/V2 only after V_control passes. V_control is copied from the same promoted route baseline construction: fresh artifact plus paired D1 graph-stage output."
+    },
+    "baseline_reference": {
+      "route_baseline": "graph/outputs/routeBaseline_D1_FRESH_RETRAIN_BASELINE",
+      "route_baseline_id": "ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5",
+      "route_baseline_mode": "promote-fresh-bestof5",
+      "route_baseline_selected_repeat": 1,
+      "route_baseline_fresh_retrained_artifact": true,
+      "route_baseline_fixed_artifact_graph_only": false,
+      "route_baseline_target_row": {
+        "edge_set": "Base_LogicAE_CB",
+        "model_name": "current_egat_edge_aware_gat",
+        "auc": 0.8545569793813736,
+        "ap": 0.8522126584244006,
+        "f1": 0.7827278958190541,
+        "recall": 0.856071964017991,
+        "precision": 0.7209595959595959
+      },
+      "legacy_canonical_governance_d1": "graph/outputs/routeD1_fresh_repro_CANONICAL_D1",
+      "audit_fixed_artifact_baseline": "graph/outputs/baseline_D1_STRONGEST_0p856370_20260504_200855",
+      "note": "V_control is constructed from the promoted fresh route baseline pack, not from the old RouteV-local review-training loop or the fixed-artifact audit pack."
+    }
+  },
+  "strict_label_policy": {
+    "user_label_source": "prepared.user_df.user_label",
+    "review_bce_label_source": "prepared.review_df.review_label",
+    "vector_proxy_label_column": "user_label",
+    "vector_regularizer_label_source": "batch.user_label",
+    "forbidden_vector_label_source": "review_label.max_per_user"
+  },
+  "artifact_reuse": {
+    "experiment_type": "fresh_d1_train",
+    "policy": "RouteV regenerates all learned/vector/edge artifacts for every variant; only unchanged data protocol artifacts and static behavior components are strict-reusable.",
+    "items": [
+      {
+        "path": "prepared_data/reviews_canonical.csv",
+        "class": "canonical_data_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Source data, filtering, balancing, and split policy are unchanged under D1 ce6a9d6."
+      },
+      {
+        "path": "prepared_data/users_canonical.csv",
+        "class": "canonical_user_split",
+        "reuse_mode": "strict_reusable",
+        "reason": "Used as the explicit source of user_label for RouteV proxy/regularizer semantics."
+      },
+      {
+        "path": "review_encoder/best_review_encoder.pt",
+        "class": "review_checkpoint",
+        "reuse_mode": "regenerated",
+        "reason": "Every RouteV variant trains a fresh encoder checkpoint under its declared objective."
+      },
+      {
+        "path": "logic_vectors/review_text_vectors.npy",
+        "class": "learned_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Text vectors are emitted by the freshly trained review encoder."
+      },
+      {
+        "path": "logic_vectors/user_text_vectors.npy",
+        "class": "learned_user_text_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "User text vectors are aggregated from the freshly emitted review text vectors."
+      },
+      {
+        "path": "logic_vectors/review_abnormal_vectors.npy",
+        "class": "learned_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Abnormal vectors are the RouteV optimization target and must be regenerated."
+      },
+      {
+        "path": "logic_vectors/user_abnormal_vectors.npy",
+        "class": "learned_user_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "User abnormal vectors are aggregated from newly generated review vectors."
+      },
+      {
+        "path": "review_scores_enriched.csv",
+        "class": "review_scores",
+        "reuse_mode": "regenerated",
+        "reason": "p_fake_review, review_gate, and evidence_score come from the current fresh encoder."
+      },
+      {
+        "path": "edges/TextSim_edges.csv",
+        "class": "text_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "TextSim edges depend on regenerated user_text_vectors."
+      },
+      {
+        "path": "edges/CB_edges.csv",
+        "class": "combined_behavior_text_edges",
+        "reuse_mode": "regenerated",
+        "reason": "CB depends on TextSim candidates and current user features."
+      },
+      {
+        "path": "edges/LogicAE_CB_edges.csv",
+        "class": "abnormal_vector_edges",
+        "reuse_mode": "regenerated",
+        "reason": "LogicAE_CB depends on regenerated user_abnormal_vectors."
+      },
+      {
+        "path": "edges/TNSGuided_LogicAE_CB_edges.csv",
+        "class": "tns_guided_abnormal_edges",
+        "reuse_mode": "regenerated",
+        "reason": "TNS-guided logic edges depend on current LogicAE/review-score context."
+      },
+      {
+        "path": "edges/UPU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "UPU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      },
+      {
+        "path": "edges/UTU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "UTU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      },
+      {
+        "path": "edges/USU_edges.csv",
+        "class": "static_behavior_edges",
+        "reuse_mode": "strict_reusable",
+        "reason": "USU does not depend on RouteV learned vectors when D1 graph mode/top-k/data protocol are unchanged; the runner still rebuilds it into each output."
+      }
+    ]
+  }
+}

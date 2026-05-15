@@ -1,0 +1,2 @@
+num_reviews,mask_source,num_reviews_with_mask,num_reviews_without_mask,num_total_spans,num_matched_spans,num_unmatched_spans,matched_span_ratio
+39667,full_text,39667,0,0,0,0,0.0

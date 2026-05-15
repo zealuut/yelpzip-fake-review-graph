@@ -1,0 +1,13 @@
+{
+  "baseline_id": "ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5",
+  "review_epoch": 1,
+  "review_val_auc": 0.7496077001,
+  "review_val_ap": 0.6097301352,
+  "d1_auc": 0.8545569793813736,
+  "d1_ap": 0.8522126584244006,
+  "d1_f1": 0.7827278958190541,
+  "d1_recall": 0.856071964017991,
+  "d1_precision": 0.7209595959595959,
+  "edge_set": "Base_LogicAE_CB",
+  "model_name": "current_egat_edge_aware_gat"
+}

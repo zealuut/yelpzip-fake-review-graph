@@ -1,0 +1,83 @@
+[
+  {
+    "epoch": 1,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V2_dual_head/review_encoder/review_encoder_epoch01.pt",
+    "train_loss": 1.3068115461601193,
+    "train_reg_loss": 1.7879453639159517,
+    "val_loss": 0.745423138214677,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.7270489108969389,
+      "ap": 0.59579311345848,
+      "recall": 0.6698584955846366,
+      "precision": 0.5472403302911778,
+      "f1": 0.602372751626483,
+      "accuracy": 0.6709943001899936
+    },
+    "val_metrics": {
+      "auc": 0.7444025984377491,
+      "ap": 0.6026502401064413,
+      "recall": 0.747008547008547,
+      "precision": 0.5285757484124585,
+      "f1": 0.6190897821852311,
+      "accuracy": 0.6701931922723091
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.3,
+    "reg_vector_field": "graph_vector"
+  },
+  {
+    "epoch": 2,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V2_dual_head/review_encoder/review_encoder_epoch02.pt",
+    "train_loss": 1.2173755918313915,
+    "train_reg_loss": 1.684420072274817,
+    "val_loss": 0.7701840441600949,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.7783898462084349,
+      "ap": 0.6606706004315006,
+      "recall": 0.7327375252686456,
+      "precision": 0.5874274991470488,
+      "f1": 0.6520854045353406,
+      "accuracy": 0.7091117796073464
+    },
+    "val_metrics": {
+      "auc": 0.7609208880550343,
+      "ap": 0.6192967551159125,
+      "recall": 0.9042735042735043,
+      "precision": 0.47200535355788537,
+      "f1": 0.6202550197860179,
+      "accuracy": 0.6027292241643668
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.3,
+    "reg_vector_field": "graph_vector"
+  },
+  {
+    "epoch": 3,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V2_dual_head/review_encoder/review_encoder_epoch03.pt",
+    "train_loss": 1.0715470843729602,
+    "train_reg_loss": 1.4523937006470964,
+    "val_loss": 0.7486884947500977,
+    "val_reg_loss": 0.0,
+    "train_metrics": {
+      "auc": 0.8320860018669467,
+      "ap": 0.7369127076826814,
+      "recall": 0.7747632726885839,
+      "precision": 0.6491353182385452,
+      "f1": 0.7064073337536984,
+      "accuracy": 0.7604100696643445
+    },
+    "val_metrics": {
+      "auc": 0.7540532890245948,
+      "ap": 0.6117574229816077,
+      "recall": 0.6863247863247863,
+      "precision": 0.5505656496400412,
+      "f1": 0.6109948639908693,
+      "accuracy": 0.6864458754983134
+    },
+    "checkpoint_selection": "user_vector_proxy",
+    "vector_reg_lambda": 0.3,
+    "reg_vector_field": "graph_vector"
+  }
+]

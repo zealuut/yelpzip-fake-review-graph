@@ -1,0 +1,27 @@
+{
+  "epoch": 2,
+  "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V2_dual_head/review_encoder/review_encoder_epoch02.pt",
+  "train_loss": 1.2173755918313915,
+  "train_reg_loss": 1.684420072274817,
+  "val_loss": 0.7701840441600949,
+  "val_reg_loss": 0.0,
+  "train_metrics": {
+    "auc": 0.7783898462084349,
+    "ap": 0.6606706004315006,
+    "recall": 0.7327375252686456,
+    "precision": 0.5874274991470488,
+    "f1": 0.6520854045353406,
+    "accuracy": 0.7091117796073464
+  },
+  "val_metrics": {
+    "auc": 0.7609208880550343,
+    "ap": 0.6192967551159125,
+    "recall": 0.9042735042735043,
+    "precision": 0.47200535355788537,
+    "f1": 0.6202550197860179,
+    "accuracy": 0.6027292241643668
+  },
+  "checkpoint_selection": "user_vector_proxy",
+  "vector_reg_lambda": 0.3,
+  "reg_vector_field": "graph_vector"
+}

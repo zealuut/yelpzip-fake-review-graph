@@ -1,0 +1,2 @@
+baseline_id,review_epoch,review_val_auc,review_val_ap,d1_auc,d1_ap,d1_f1,d1_recall,d1_precision,edge_set,model_name
+ROUTE_BASELINE_D1_FRESH_RETRAIN_BESTOF5,1,0.7496077001,0.6097301352,0.8545569793813736,0.8522126584244006,0.7827278958190541,0.856071964017991,0.7209595959595959,Base_LogicAE_CB,current_egat_edge_aware_gat

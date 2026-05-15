@@ -1,0 +1,46 @@
+{
+  "epoch": 1,
+  "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+  "train_loss": 0.7692671982527837,
+  "train_reg_loss": 0.0,
+  "val_loss": 0.7500996827787044,
+  "val_reg_loss": 0.0,
+  "train_metrics": {
+    "auc": 0.7294115617438832,
+    "ap": 0.599392141872966,
+    "recall": 0.674220661772529,
+    "precision": 0.5461989312187554,
+    "f1": 0.6034950716632541,
+    "accuracy": 0.6704005699810006
+  },
+  "val_metrics": {
+    "auc": 0.7507233892097593,
+    "ap": 0.6081332036060683,
+    "recall": 0.7405982905982906,
+    "precision": 0.534381745297564,
+    "f1": 0.6208131828765896,
+    "accuracy": 0.6754063170806501
+  },
+  "checkpoint_selection": "user_vector_proxy",
+  "vector_reg_lambda": 0.0,
+  "reg_vector_field": "review_vector",
+  "routeV_proxy_selection": {
+    "epoch": 1,
+    "checkpoint_path": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/review_encoder_epoch01.pt",
+    "cache_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V0_proxy_checkpoint/review_encoder/checkpoint_proxy/epoch_01",
+    "user_auc": 0.7043215330407021,
+    "user_ap": 0.6922725326586212,
+    "label_source": "user_label",
+    "proxy_metric_method": "train_user_linear_probe_eval_val_auc",
+    "linear_probe_val_auc": 0.7043215330407021,
+    "linear_probe_val_ap": 0.6922725326586212,
+    "centroid_val_auc": 0.6848382021127182,
+    "centroid_val_ap": 0.6779850124313174,
+    "norm_val_auc": 0.516512430963536,
+    "train_split": "train",
+    "eval_split": "val",
+    "top_m": 3,
+    "num_train_users": 4264,
+    "num_eval_users": 1066
+  }
+}
