@@ -160,11 +160,40 @@ python -m graph.routes.routeV_vector_quality.scripts.vector_quality_metrics \
     --review_output graph/outputs/<routeV_run>/<variant>/review_encoder/review_output.csv
 ```
 
+### Exploratory Attach From V1a
+
+`scripts/run_routeV_attach.py` is the V2b exploratory attach runner. It starts
+from the V1a checkpoint only to test direction quickly, so its outputs are
+marked `exploratory_only_checkpoint_reuse` and must not be used as formal
+paper-facing fresh results.
+
+The first queue uses fixed V1a top-m review selection and fixed
+`Base_LogicAE_CB` topology, trains a frozen graph surrogate, and lets graph node
+BCE gradients update only the abnormal/vector-side review encoder modules:
+
+```bash
+python -m graph.routes.routeV_vector_quality.scripts.run_routeV_attach \
+    --output_root graph/outputs/routeV_attach_from_v1a_$(date +%Y%m%d_%H%M%S) \
+    --config_path graph/routes/routeV_vector_quality/configs/routeV_attach_from_v1a.json
+```
+
+Initial variants:
+
+- `V2_control_attach_zero_from_V1a`
+- `V2b_beta002_from_V1a`
+- `V2b_beta005_from_V1a`
+- `V2b_beta010_from_V1a`
+
+If a beta variant beats V1a in this exploratory setting, the formal follow-up
+must be a fresh RouteV attach run with its own stage-1 checkpoint, regenerated
+vectors, fixed-control run, and graph-stage artifacts.
+
 ## Implementation Status
 
 - [x] V0: User-level proxy checkpoint selection with explicit `user_label` (`src/user_level_proxy.py`)
 - [x] V1: Vector separability regularizer with explicit `user_label` (`src/vector_reg_loss.py`)
 - [x] V2: Dual-head wrapper (`src/dual_head_encoder.py`)
+- [x] V2b exploratory attach runner with frozen graph-loss backprop (`scripts/run_routeV_attach.py`)
 - [x] Route-local dataloader with user ids per batch
 - [x] Route-local dataloader with explicit `user_label` per review row
 - [x] Route-local training loop with per-epoch checkpoints
