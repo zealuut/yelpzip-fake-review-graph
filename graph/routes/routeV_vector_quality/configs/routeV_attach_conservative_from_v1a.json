@@ -1,0 +1,88 @@
+{
+  "experiment_name": "routeV_attach_conservative_from_v1a",
+  "experiment_type": "exploratory_only_checkpoint_reuse",
+  "base_protocol": "d1_ce6a9d6",
+  "description": "More conservative exploratory RouteV attach-training from V1a. Uses smaller graph-loss beta, stronger vector anchoring, and only trains the abnormal vector/gate modules.",
+  "source_variant_dir": "graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+  "paper_facing_policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+  "base_protocol_args": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "mask_source": "full_text",
+    "seed": 42,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "attach_user_batch_size": 8,
+    "attach_epochs": 1,
+    "attach_learning_rate": 5e-6,
+    "review_weight": 0.05,
+    "supcon_weight": 0.05,
+    "supcon_temperature": 0.1,
+    "delta_l2_weight": 0.05,
+    "surrogate_max_epochs": 100,
+    "surrogate_patience": 16,
+    "device": "auto"
+  },
+  "surrogate_graph": {
+    "edge_set": "Base_LogicAE_CB",
+    "relations": ["UPU", "UTU", "USU", "LogicAE_CB"],
+    "frozen": true,
+    "topology_source": "source_variant_edges",
+    "feature_standardization_source": "source_variant_self_features"
+  },
+  "acceptance_reference": {
+    "v1a_auc": 0.8591378973182074,
+    "v1a_ap": 0.857937837920376,
+    "v1a_f1": 0.7816901408450704,
+    "attach_zero_auc": 0.8615587258844342,
+    "attach_zero_ap": 0.8616608328227081,
+    "attach_zero_f1": 0.7753120665742025
+  },
+  "variants": [
+    {
+      "name": "V2c_control_attach_zero_from_V1a",
+      "description": "Conservative attach-framework control from V1a with no attach updates.",
+      "comparison_baseline": "V1a_supcon_reg",
+      "checkpoint_reuse": "exploratory_only",
+      "graph_beta": 0.0,
+      "attach_epochs": 0,
+      "review_weight": 0.0,
+      "supcon_weight": 0.0,
+      "delta_l2_weight": 0.0,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"]
+    },
+    {
+      "name": "V2c_beta0002_abngate_from_V1a",
+      "description": "Very small graph beta; train only abnormal vector MLP and gate MLP.",
+      "comparison_baseline": "V2c_control_attach_zero_from_V1a",
+      "checkpoint_reuse": "exploratory_only",
+      "graph_beta": 0.0002,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"]
+    },
+    {
+      "name": "V2c_beta0005_abngate_from_V1a",
+      "description": "Small graph beta; train only abnormal vector MLP and gate MLP.",
+      "comparison_baseline": "V2c_control_attach_zero_from_V1a",
+      "checkpoint_reuse": "exploratory_only",
+      "graph_beta": 0.0005,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"]
+    },
+    {
+      "name": "V2c_beta001_abngate_from_V1a",
+      "description": "Conservative graph beta; train only abnormal vector MLP and gate MLP.",
+      "comparison_baseline": "V2c_control_attach_zero_from_V1a",
+      "checkpoint_reuse": "exploratory_only",
+      "graph_beta": 0.001,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"]
+    }
+  ]
+}
