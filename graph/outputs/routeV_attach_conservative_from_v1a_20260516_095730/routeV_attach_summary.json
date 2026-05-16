@@ -1,0 +1,70 @@
+{
+  "status": "complete",
+  "output_root": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_attach_conservative_from_v1a_20260516_095730",
+  "config_path": "graph/routes/routeV_vector_quality/configs/routeV_attach_conservative_from_v1a.json",
+  "experiment_type": "exploratory_only_checkpoint_reuse",
+  "paper_facing_policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+  "source_variant_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+  "surrogate_graph_metrics": {
+    "auc": 0.8570182674779552,
+    "ap": 0.8549606040895061,
+    "recall": 0.8365817091454273,
+    "precision": 0.7332457293035479,
+    "f1": 0.7815126050420168,
+    "accuracy": 0.7661169415292354
+  },
+  "acceptance_reference": {
+    "v1a_auc": 0.8591378973182074,
+    "v1a_ap": 0.857937837920376,
+    "v1a_f1": 0.7816901408450704,
+    "attach_zero_auc": 0.8615587258844342,
+    "attach_zero_ap": 0.8616608328227081,
+    "attach_zero_f1": 0.7753120665742025
+  },
+  "results": [
+    {
+      "name": "V2c_control_attach_zero_from_V1a",
+      "status": "ok",
+      "graph_auc": 0.8570182674779552,
+      "graph_ap": 0.8549606040895061,
+      "graph_f1": 0.7815126050420168,
+      "graph_recall": 0.8365817091454273,
+      "graph_precision": 0.7332457293035479,
+      "edge_set": "Base_LogicAE_CB",
+      "model_name": "frozen_surrogate_current_egat_edge_aware_gat"
+    },
+    {
+      "name": "V2c_beta0002_abngate_from_V1a",
+      "status": "ok",
+      "graph_auc": 0.8664543290573603,
+      "graph_ap": 0.8693354775687854,
+      "graph_f1": 0.7869742198100407,
+      "graph_recall": 0.8695652173913043,
+      "graph_precision": 0.7187112763320942,
+      "edge_set": "Base_LogicAE_CB",
+      "model_name": "frozen_surrogate_current_egat_edge_aware_gat"
+    },
+    {
+      "name": "V2c_beta0005_abngate_from_V1a",
+      "status": "ok",
+      "graph_auc": 0.8594390960441817,
+      "graph_ap": 0.8628389935510533,
+      "graph_f1": 0.7842866988283942,
+      "graph_recall": 0.8530734632683659,
+      "graph_precision": 0.7257653061224489,
+      "edge_set": "Base_LogicAE_CB",
+      "model_name": "frozen_surrogate_current_egat_edge_aware_gat"
+    },
+    {
+      "name": "V2c_beta001_abngate_from_V1a",
+      "status": "ok",
+      "graph_auc": 0.8573531824792251,
+      "graph_ap": 0.8625816414027296,
+      "graph_f1": 0.7777777777777778,
+      "graph_recall": 0.808095952023988,
+      "graph_precision": 0.7496522948539638,
+      "edge_set": "Base_LogicAE_CB",
+      "model_name": "frozen_surrogate_current_egat_edge_aware_gat"
+    }
+  ]
+}

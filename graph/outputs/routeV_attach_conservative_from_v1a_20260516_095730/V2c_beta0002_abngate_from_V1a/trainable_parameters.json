@@ -1,0 +1,10 @@
+[
+  "gate_mlp.0.weight",
+  "gate_mlp.0.bias",
+  "gate_mlp.3.weight",
+  "gate_mlp.3.bias",
+  "abnormal_vector_mlp.0.weight",
+  "abnormal_vector_mlp.0.bias",
+  "abnormal_vector_mlp.3.weight",
+  "abnormal_vector_mlp.3.bias"
+]

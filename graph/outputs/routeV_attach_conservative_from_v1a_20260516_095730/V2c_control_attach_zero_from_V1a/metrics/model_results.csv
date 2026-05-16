@@ -1,0 +1,2 @@
+review_encoder,model_name,edge_set,threshold,val_auc,val_ap,auc,ap,recall,precision,f1,accuracy,num_train_users,num_val_users,num_test_users,num_fake_train,num_fake_val,num_fake_test,backbone,relation_model,fixed_topology,fixed_top_m_selection
+llm_masked_logic,frozen_surrogate_current_egat_edge_aware_gat,Base_LogicAE_CB,0.4041762351989746,0.859315214598242,0.8415324211311777,0.8570182674779552,0.8549606040895061,0.8365817091454273,0.7332457293035479,0.7815126050420168,0.7661169415292354,4264,1066,1334,2132,533,667,current_egat,edge_aware_gat,True,True
