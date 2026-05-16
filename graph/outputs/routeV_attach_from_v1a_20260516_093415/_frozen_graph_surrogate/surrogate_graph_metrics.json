@@ -1,0 +1,16 @@
+{
+  "status": "ok",
+  "edge_set": "Base_LogicAE_CB",
+  "model_name": "frozen_surrogate_current_egat_edge_aware_gat",
+  "threshold": 0.38816481828689575,
+  "metrics": {
+    "auc": 0.8615587258844342,
+    "ap": 0.8616608328227081,
+    "recall": 0.8380809595202399,
+    "precision": 0.7212903225806452,
+    "f1": 0.7753120665742025,
+    "accuracy": 0.7571214392803598
+  },
+  "max_epochs": 100,
+  "patience": 16
+}

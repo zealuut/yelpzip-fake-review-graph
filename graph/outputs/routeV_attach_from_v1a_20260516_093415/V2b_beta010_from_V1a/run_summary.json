@@ -1,0 +1,85 @@
+{
+  "status": "ok",
+  "variant": "V2b_beta010_from_V1a",
+  "output_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_attach_from_v1a_20260516_093415/V2b_beta010_from_V1a",
+  "experiment_type": "exploratory_only_checkpoint_reuse",
+  "checkpoint_reuse": "exploratory_only",
+  "paper_facing_policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+  "source_variant_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+  "attach_history": [
+    {
+      "epoch": 1,
+      "loss": 0.17652975659516917,
+      "graph_loss": 0.5227629174434669,
+      "review_loss": 0.6310158644228,
+      "supcon_loss": 1.0797609171994367,
+      "graph_beta": 0.01,
+      "review_weight": 0.1,
+      "supcon_weight": 0.1,
+      "delta_l2_weight": 0.01
+    }
+  ],
+  "surrogate_graph_metrics": {
+    "auc": 0.8615587258844342,
+    "ap": 0.8616608328227081,
+    "recall": 0.8380809595202399,
+    "precision": 0.7212903225806452,
+    "f1": 0.7753120665742025,
+    "accuracy": 0.7571214392803598
+  },
+  "best_graph_model": {
+    "review_encoder": "llm_masked_logic",
+    "model_name": "frozen_surrogate_current_egat_edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "threshold": 0.45845168828964233,
+    "val_auc": 0.8391595591522375,
+    "val_ap": 0.8458444555586657,
+    "auc": 0.8460065319664006,
+    "ap": 0.8514412002142325,
+    "recall": 0.9025487256371814,
+    "precision": 0.6696329254727474,
+    "f1": 0.768837803320562,
+    "accuracy": 0.7286356821589205,
+    "num_train_users": 4264,
+    "num_val_users": 1066,
+    "num_test_users": 1334,
+    "num_fake_train": 2132,
+    "num_fake_val": 533,
+    "num_fake_test": 667,
+    "backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "fixed_topology": true,
+    "fixed_top_m_selection": true
+  },
+  "artifact_reuse": {
+    "experiment_type": "exploratory_only_checkpoint_reuse",
+    "source_variant_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+    "policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+    "items": [
+      {
+        "path": "source review_encoder/best_review_encoder.pt",
+        "class": "review_checkpoint",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Exploratory direction check starts from V1a. Formal attach variants must fresh-train their own checkpoint."
+      },
+      {
+        "path": "source edges/Base_LogicAE_CB",
+        "class": "fixed_graph_topology",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Frozen-graph attach isolates whether graph node BCE can improve the abnormal-vector path without topology changes."
+      },
+      {
+        "path": "source top-m review selection",
+        "class": "fixed_user_vector_pooling",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Top-m selection is fixed from V1a evidence scores for the first attach diagnostic."
+      },
+      {
+        "path": "logic_vectors/user_abnormal_vectors.npy",
+        "class": "learned_user_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Recomputed from the attach-updated review encoder after training."
+      }
+    ]
+  }
+}

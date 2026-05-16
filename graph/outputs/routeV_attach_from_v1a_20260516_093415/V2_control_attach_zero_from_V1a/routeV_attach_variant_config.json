@@ -1,0 +1,39 @@
+{
+  "variant": {
+    "name": "V2_control_attach_zero_from_V1a",
+    "description": "Attach-framework control from V1a. Loads V1a and re-evaluates through the fixed attach framework with no attach updates.",
+    "comparison_baseline": "V1a_supcon_reg",
+    "checkpoint_reuse": "exploratory_only",
+    "graph_beta": 0.0,
+    "attach_epochs": 0,
+    "review_weight": 0.0,
+    "supcon_weight": 0.0
+  },
+  "shared": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "mask_source": "full_text",
+    "seed": 42,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "attach_user_batch_size": 8,
+    "attach_epochs": 1,
+    "attach_learning_rate": 1e-05,
+    "review_weight": 0.1,
+    "supcon_weight": 0.1,
+    "supcon_temperature": 0.1,
+    "delta_l2_weight": 0.01,
+    "surrogate_max_epochs": 100,
+    "surrogate_patience": 16,
+    "device": "auto"
+  }
+}

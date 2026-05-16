@@ -1,0 +1,84 @@
+{
+  "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+  "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+  "review_encoder": "llm_masked_logic",
+  "mask_source": "full_text",
+  "seed": 42,
+  "time_bucket": "week",
+  "graph_mode": "current",
+  "top_k": 20,
+  "top_m": 3,
+  "model_backbone": "current_egat",
+  "relation_model": "edge_aware_gat",
+  "edge_set": "Base_LogicAE_CB",
+  "max_seq_length": 256,
+  "vector_dim": 256,
+  "batch_size": 16,
+  "attach_user_batch_size": 8,
+  "attach_epochs": 1,
+  "attach_learning_rate": 1e-05,
+  "review_weight": 0.1,
+  "supcon_weight": 0.1,
+  "supcon_temperature": 0.1,
+  "delta_l2_weight": 0.01,
+  "surrogate_max_epochs": 100,
+  "surrogate_patience": 16,
+  "device": "auto",
+  "variant": {
+    "name": "V2b_beta002_from_V1a",
+    "description": "Frozen-graph attach from V1a with small graph node BCE weight.",
+    "comparison_baseline": "V2_control_attach_zero_from_V1a",
+    "checkpoint_reuse": "exploratory_only",
+    "graph_beta": 0.002
+  },
+  "experiment_type": "exploratory_only_checkpoint_reuse",
+  "source_variant_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+  "paper_facing_policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+  "surrogate_graph": {
+    "edge_set": "Base_LogicAE_CB",
+    "relations": [
+      "UPU",
+      "UTU",
+      "USU",
+      "LogicAE_CB"
+    ],
+    "frozen": true,
+    "topology_source": "source_variant_edges",
+    "feature_standardization_source": "source_variant_self_features"
+  },
+  "artifact_reuse": {
+    "experiment_type": "exploratory_only_checkpoint_reuse",
+    "source_variant_dir": "/home/xyz/HuChao (2)/d1_ce6a9d6_governance/graph/outputs/routeV_vector_quality_v012_20260515_185437/V1a_supcon_reg",
+    "policy": "Do not use these from-V1a results as formal paper-facing evidence. Any final abnormal-head or attach-loss variant must be rerun fresh with its own stage-1 and graph-stage artifacts.",
+    "items": [
+      {
+        "path": "source review_encoder/best_review_encoder.pt",
+        "class": "review_checkpoint",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Exploratory direction check starts from V1a. Formal attach variants must fresh-train their own checkpoint."
+      },
+      {
+        "path": "source edges/Base_LogicAE_CB",
+        "class": "fixed_graph_topology",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Frozen-graph attach isolates whether graph node BCE can improve the abnormal-vector path without topology changes."
+      },
+      {
+        "path": "source top-m review selection",
+        "class": "fixed_user_vector_pooling",
+        "reuse_mode": "artifact_anchored_only",
+        "reason": "Top-m selection is fixed from V1a evidence scores for the first attach diagnostic."
+      },
+      {
+        "path": "logic_vectors/user_abnormal_vectors.npy",
+        "class": "learned_user_abnormal_vectors",
+        "reuse_mode": "regenerated",
+        "reason": "Recomputed from the attach-updated review encoder after training."
+      }
+    ]
+  },
+  "fixed_topology": true,
+  "fixed_top_m_selection": true,
+  "smoke_test": false,
+  "created_at": "2026-05-16T09:42:34"
+}
