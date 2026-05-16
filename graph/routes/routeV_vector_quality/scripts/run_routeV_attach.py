@@ -91,6 +91,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RouteV exploratory attach-training from V1a")
     parser.add_argument("--output_root", required=True)
     parser.add_argument("--config_path", default=str(DEFAULT_CONFIG))
+    parser.add_argument("--source_variant_dir", default=None, help="Override config source_variant_dir, useful for fresh staged runs")
     parser.add_argument("--variants", nargs="*", default=None)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--smoke_test", action="store_true")
@@ -357,8 +358,10 @@ def _train_graph_surrogate(
     }
     _save_json(output_dir / "surrogate_graph_metrics.json", payload)
     torch.save(graph_model.state_dict(), output_dir / "frozen_graph_surrogate.pt")
+    initial_model_state = {name: value.detach().cpu().clone() for name, value in graph_model.state_dict().items()}
     return {
         "model": graph_model,
+        "initial_model_state": initial_model_state,
         "edge_packs": edge_packs,
         "labels": labels,
         "splits": splits,
@@ -437,7 +440,15 @@ def _attach_train_variant(
     model.train()
 
     graph_model = graph_state["model"]
-    graph_model.eval()
+    train_graph = bool(variant.get("train_graph", False))
+    if train_graph:
+        graph_model.train()
+        for parameter in graph_model.parameters():
+            parameter.requires_grad = True
+    else:
+        graph_model.eval()
+        for parameter in graph_model.parameters():
+            parameter.requires_grad = False
     labels_np = graph_state["labels"]
     splits = graph_state["splits"]
     train_user_indices = np.where(splits == "train")[0].astype(np.int64)
@@ -449,11 +460,28 @@ def _attach_train_variant(
         shuffle=True,
         num_workers=0,
     )
-    optimizer = torch.optim.AdamW(
-        [parameter for parameter in model.parameters() if parameter.requires_grad],
-        lr=float(variant.get("attach_learning_rate", shared.get("attach_learning_rate", 1e-5))),
-        weight_decay=float(variant.get("attach_weight_decay", 1e-4)),
-    )
+    attach_lr = float(variant.get("attach_learning_rate", shared.get("attach_learning_rate", 1e-5)))
+    weight_decay = float(variant.get("attach_weight_decay", shared.get("attach_weight_decay", 1e-4)))
+    if train_graph:
+        optimizer = torch.optim.AdamW(
+            [
+                {
+                    "params": [parameter for parameter in model.parameters() if parameter.requires_grad],
+                    "lr": attach_lr,
+                },
+                {
+                    "params": [parameter for parameter in graph_model.parameters() if parameter.requires_grad],
+                    "lr": float(variant.get("graph_learning_rate", shared.get("graph_learning_rate", 1e-4))),
+                },
+            ],
+            weight_decay=weight_decay,
+        )
+    else:
+        optimizer = torch.optim.AdamW(
+            [parameter for parameter in model.parameters() if parameter.requires_grad],
+            lr=attach_lr,
+            weight_decay=weight_decay,
+        )
     labels_tensor = torch.as_tensor(labels_np, dtype=torch.float32, device=device)
     y_train = labels_np[splits == "train"].astype(np.float32)
     pos_count = float(y_train.sum())
@@ -508,7 +536,10 @@ def _attach_train_variant(
 
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], max_norm=1.0)
+            clip_params = [p for p in model.parameters() if p.requires_grad]
+            if train_graph:
+                clip_params.extend([p for p in graph_model.parameters() if p.requires_grad])
+            torch.nn.utils.clip_grad_norm_(clip_params, max_norm=1.0)
             optimizer.step()
             epoch_losses.append(float(loss.detach().cpu()))
             epoch_graph.append(float(graph_loss.detach().cpu()))
@@ -525,6 +556,7 @@ def _attach_train_variant(
             "review_weight": review_weight,
             "supcon_weight": supcon_weight,
             "delta_l2_weight": delta_l2_weight,
+            "train_graph": train_graph,
         }
         history.append(row)
         print(
@@ -626,7 +658,11 @@ def _encode_and_evaluate(
         [
             {
                 "review_encoder": shared.get("review_encoder", "llm_masked_logic"),
-                "model_name": "frozen_surrogate_current_egat_edge_aware_gat",
+                "model_name": (
+                    "trainable_surrogate_current_egat_edge_aware_gat"
+                    if bool(variant.get("train_graph", False))
+                    else "frozen_surrogate_current_egat_edge_aware_gat"
+                ),
                 "edge_set": shared.get("edge_set", "Base_LogicAE_CB"),
                 "threshold": threshold,
                 "val_auc": val_metrics["auc"],
@@ -647,36 +683,46 @@ def _encode_and_evaluate(
                 "relation_model": shared.get("relation_model", "edge_aware_gat"),
                 "fixed_topology": True,
                 "fixed_top_m_selection": True,
+                "train_graph": bool(variant.get("train_graph", False)),
             }
         ]
     )
     model_results.to_csv(metrics_dir / "model_results.csv", index=False)
+    torch.save(graph_state["model"].state_dict(), exp_dir / "graph_surrogate_after_attach.pt")
     return model_results.iloc[0].to_dict()
 
 
 def _artifact_reuse_manifest(config: dict[str, Any], context: AttachContext) -> dict[str, Any]:
+    experiment_type = str(config.get("experiment_type", "exploratory_only_checkpoint_reuse"))
+    fresh_mode = experiment_type in {"fresh_attach_train", "fresh_d1_train"}
+    source_reuse_mode = "regenerated" if fresh_mode else "artifact_anchored_only"
+    source_reason = (
+        "Source artifact is produced by the paired fresh stage-1 run for this attach experiment."
+        if fresh_mode
+        else "Exploratory direction check starts from an existing V1a output. Formal attach variants must fresh-train their own checkpoint."
+    )
     return {
-        "experiment_type": "exploratory_only_checkpoint_reuse",
+        "experiment_type": experiment_type,
         "source_variant_dir": str(context.source_dir),
         "policy": config.get("paper_facing_policy"),
         "items": [
             {
                 "path": "source review_encoder/best_review_encoder.pt",
                 "class": "review_checkpoint",
-                "reuse_mode": "artifact_anchored_only",
-                "reason": "Exploratory direction check starts from V1a. Formal attach variants must fresh-train their own checkpoint.",
+                "reuse_mode": source_reuse_mode,
+                "reason": source_reason,
             },
             {
                 "path": "source edges/Base_LogicAE_CB",
                 "class": "fixed_graph_topology",
-                "reuse_mode": "artifact_anchored_only",
-                "reason": "Frozen-graph attach isolates whether graph node BCE can improve the abnormal-vector path without topology changes.",
+                "reuse_mode": source_reuse_mode,
+                "reason": "Topology is fixed during attach. For fresh attach runs it comes from the paired fresh stage-1 output.",
             },
             {
                 "path": "source top-m review selection",
                 "class": "fixed_user_vector_pooling",
-                "reuse_mode": "artifact_anchored_only",
-                "reason": "Top-m selection is fixed from V1a evidence scores for the first attach diagnostic.",
+                "reuse_mode": source_reuse_mode,
+                "reason": "Top-m selection is fixed from the source stage-1 evidence scores for this attach diagnostic.",
             },
             {
                 "path": "logic_vectors/user_abnormal_vectors.npy",
@@ -698,12 +744,16 @@ def _run_variant(
     smoke_test: bool,
 ) -> dict[str, Any]:
     shared = dict(config["base_protocol_args"])
+    experiment_type = str(config.get("experiment_type", "exploratory_only_checkpoint_reuse"))
     if smoke_test:
         shared["batch_size"] = min(int(shared.get("batch_size", 16)), 8)
     device = resolve_device(shared.get("device", "auto"))
     name = variant["name"]
     exp_dir = output_root / name
     exp_dir.mkdir(parents=True, exist_ok=True)
+    initial_graph_state = graph_state.get("initial_model_state")
+    if initial_graph_state is not None:
+        graph_state["model"].load_state_dict(initial_graph_state)
     source_checkpoint = context.source_dir / "review_encoder" / "best_review_encoder.pt"
     if not source_checkpoint.exists():
         source_summary = _load_json(context.source_dir / "run_summary.json")
@@ -733,7 +783,7 @@ def _run_variant(
     run_config = {
         **shared,
         "variant": variant,
-        "experiment_type": "exploratory_only_checkpoint_reuse",
+        "experiment_type": experiment_type,
         "source_variant_dir": str(context.source_dir),
         "paper_facing_policy": config.get("paper_facing_policy"),
         "surrogate_graph": config.get("surrogate_graph"),
@@ -747,8 +797,8 @@ def _run_variant(
         "status": "ok",
         "variant": name,
         "output_dir": str(exp_dir),
-        "experiment_type": "exploratory_only_checkpoint_reuse",
-        "checkpoint_reuse": "exploratory_only",
+        "experiment_type": experiment_type,
+        "checkpoint_reuse": "paired_fresh_stage1" if experiment_type == "fresh_attach_train" else "exploratory_only",
         "paper_facing_policy": config.get("paper_facing_policy"),
         "source_variant_dir": str(context.source_dir),
         "attach_history": history,
@@ -781,7 +831,10 @@ def _graph_metrics(summary: dict[str, Any]) -> dict[str, Any]:
 def main() -> None:
     args = parse_args()
     config = _load_json(Path(args.config_path))
+    if args.source_variant_dir:
+        config["source_variant_dir"] = args.source_variant_dir
     shared = dict(config["base_protocol_args"])
+    experiment_type = str(config.get("experiment_type", "exploratory_only_checkpoint_reuse"))
     if args.smoke_test:
         shared["batch_size"] = min(int(shared.get("batch_size", 16)), 8)
         shared["surrogate_max_epochs"] = 6
@@ -806,7 +859,7 @@ def main() -> None:
             "status": "starting",
             "output_root": str(output_root),
             "config_path": str(args.config_path),
-            "experiment_type": "exploratory_only_checkpoint_reuse",
+            "experiment_type": experiment_type,
             "started_at": datetime.now().isoformat(timespec="seconds"),
         },
     )
@@ -881,7 +934,7 @@ def main() -> None:
         "status": "complete",
         "output_root": str(output_root),
         "config_path": str(args.config_path),
-        "experiment_type": "exploratory_only_checkpoint_reuse",
+        "experiment_type": experiment_type,
         "paper_facing_policy": config.get("paper_facing_policy"),
         "source_variant_dir": str(context.source_dir),
         "surrogate_graph_metrics": graph_state["metrics"],

@@ -1,0 +1,84 @@
+{
+  "experiment_name": "routeV_attach_fresh_v34",
+  "experiment_type": "fresh_attach_train",
+  "base_protocol": "d1_ce6a9d6",
+  "description": "Fresh staged RouteV attach run: train a new V1a stage-1 checkpoint, then test frozen-graph V3 and trainable-graph V4 attach from that paired fresh source.",
+  "source_variant_dir": "OVERRIDE_WITH_FRESH_STAGE1_V1A",
+  "paper_facing_policy": "Paper-facing candidate only when source_variant_dir is produced by the paired fresh stage-1 run in the same queue; do not point this config at historical V1a outputs.",
+  "base_protocol_args": {
+    "graph_data_dir": "/home/xyz/HuChao (2)/Bert-TextClassification/graph data",
+    "primary_model_name_or_path": "/home/xyz/HuChao (2)/Bert-TextClassification/local_models/roberta-base",
+    "review_encoder": "llm_masked_logic",
+    "mask_source": "full_text",
+    "seed": 42,
+    "time_bucket": "week",
+    "graph_mode": "current",
+    "top_k": 20,
+    "top_m": 3,
+    "model_backbone": "current_egat",
+    "relation_model": "edge_aware_gat",
+    "edge_set": "Base_LogicAE_CB",
+    "max_seq_length": 256,
+    "vector_dim": 256,
+    "batch_size": 16,
+    "attach_user_batch_size": 8,
+    "attach_epochs": 1,
+    "attach_learning_rate": 5e-6,
+    "graph_learning_rate": 1e-4,
+    "review_weight": 0.05,
+    "supcon_weight": 0.05,
+    "supcon_temperature": 0.1,
+    "delta_l2_weight": 0.05,
+    "surrogate_max_epochs": 100,
+    "surrogate_patience": 16,
+    "device": "auto"
+  },
+  "surrogate_graph": {
+    "edge_set": "Base_LogicAE_CB",
+    "relations": ["UPU", "UTU", "USU", "LogicAE_CB"],
+    "frozen": false,
+    "topology_source": "paired_fresh_stage1_edges",
+    "feature_standardization_source": "paired_fresh_stage1_self_features"
+  },
+  "acceptance_reference": {
+    "routev_v1a_prior_auc": 0.8591378973182074,
+    "routev_v1a_prior_ap": 0.857937837920376,
+    "routev_v1a_prior_f1": 0.7816901408450704,
+    "v2c_exploratory_best_auc": 0.8664543290573603,
+    "v2c_exploratory_best_ap": 0.8693354775687854,
+    "v2c_exploratory_best_f1": 0.7869742198100407
+  },
+  "variants": [
+    {
+      "name": "V3_control_attach_zero_fresh",
+      "description": "Fresh staged attach-zero control from the paired fresh V1a source.",
+      "comparison_baseline": "paired_fresh_V1a_source",
+      "checkpoint_reuse": "paired_fresh_stage1",
+      "graph_beta": 0.0,
+      "attach_epochs": 0,
+      "review_weight": 0.0,
+      "supcon_weight": 0.0,
+      "delta_l2_weight": 0.0,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"],
+      "train_graph": false
+    },
+    {
+      "name": "V3_frozen_beta0002_abngate_fresh",
+      "description": "Fresh staged frozen-graph attach with conservative beta and abnormal/gate-only updates.",
+      "comparison_baseline": "V3_control_attach_zero_fresh",
+      "checkpoint_reuse": "paired_fresh_stage1",
+      "graph_beta": 0.0002,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"],
+      "train_graph": false
+    },
+    {
+      "name": "V4_train_graph_beta0002_abngate_fresh",
+      "description": "Fresh staged attach with the graph surrogate trainable together with abnormal/gate modules.",
+      "comparison_baseline": "V3_control_attach_zero_fresh",
+      "checkpoint_reuse": "paired_fresh_stage1",
+      "graph_beta": 0.0002,
+      "trainable_patterns": ["abnormal_vector_mlp", "gate_mlp"],
+      "train_graph": true
+    }
+  ]
+}
